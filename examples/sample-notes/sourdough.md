@@ -8,7 +8,7 @@ Hydration experiments: 75% is my ceiling with this flour. The 80% batches
 taste the same and handle like glue. Chasing high hydration for its own sake
 was an internet-induced detour.
 
-Cold retard timing matters more than I thought. Twelve hours in the fridge
+Cold-proof timing matters more than I thought. Twelve hours in the fridge
 gives mild loaves; twenty-four gives the tang people actually comment on.
 Thirty-six starts to break down the crumb. The fridge is the flavor dial.
 
