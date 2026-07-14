@@ -1,0 +1,17 @@
+{
+  "name": "Concept Loom",
+  "short_name": "Loom",
+  "description": "Explore Concept Loom's provenance-backed concept landscape.",
+  "id": "/static/orbit.html",
+  "start_url": "/static/orbit.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07070e",
+  "theme_color": "#07070e",
+  "icons": [
+    { "src": "/static/loom-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/static/loom-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/static/loom-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Concept Loom</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f4;
+      --panel: #ffffff;
+      --ink: #1d2523;
+      --muted: #68736f;
+      --line: #d9dfda;
+      --line-strong: #b9c3bd;
+      --accent: #1f6f78;
+      --accent-soft: #e3f2f2;
+      --warn: #8b5a12;
+      --good: #2f6f4f;
+      --shadow: 0 8px 28px rgba(34, 44, 40, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.35;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line-strong);
+      background: var(--panel);
+      color: var(--ink);
+      min-height: 34px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover { border-color: var(--accent); }
+    button.active, button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 400px;
+      min-height: 100vh;
+    }
+
+    main {
+      min-width: 0;
+      padding: 20px;
+    }
+
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 720;
+      letter-spacing: 0;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .segmented {
+      display: inline-flex;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      overflow: hidden;
+      background: var(--panel);
+    }
+
+    .segmented button {
+      border: 0;
+      border-right: 1px solid var(--line);
+      border-radius: 0;
+      min-width: 76px;
+    }
+
+    .segmented button:last-child { border-right: 0; }
+
+    .limit {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    select {
+      min-height: 34px;
+      border: 1px solid var(--line-strong);
+      background: var(--panel);
+      border-radius: 6px;
+      padding: 5px 8px;
+      color: var(--ink);
+    }
+
+    input[type="search"] {
+      min-height: 34px;
+      width: min(260px, 45vw);
+      border: 1px solid var(--line-strong);
+      background: var(--panel);
+      border-radius: 6px;
+      padding: 5px 8px;
+      color: var(--ink);
+    }
+
+    .search {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .table-wrap {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: auto;
+      max-height: calc(100vh - 116px);
+    }
+
+    table {
+      width: 100%;
+      min-width: 1100px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+      font-size: 13px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #eef2ee;
+      color: #34403c;
+      font-weight: 680;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    th.sortable { cursor: pointer; }
+    th.sortable::after {
+      content: "+";
+      color: var(--muted);
+      font-size: 11px;
+      margin-left: 5px;
+    }
+
+    th.sorted-asc::after { content: "^"; color: var(--accent); }
+    th.sorted-desc::after { content: "v"; color: var(--accent); }
+
+    tbody tr {
+      cursor: pointer;
+    }
+
+    tbody tr:hover, tbody tr.selected {
+      background: var(--accent-soft);
+    }
+
+    .title-cell {
+      font-weight: 650;
+      overflow-wrap: anywhere;
+    }
+
+    .summary-cell {
+      color: #38433f;
+    }
+
+    .summary-clip {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      overflow-wrap: anywhere;
+    }
+
+    .type-pill, .grade-pill, .flag-pill {
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+      min-height: 24px;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      line-height: 1.25;
+      background: #eef1ed;
+      color: #32413c;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .grade-pill { background: #e9eff8; color: #234264; }
+    .flag-pill { background: #f3eadc; color: var(--warn); }
+    .flag-pill.good { background: #e4f1e8; color: var(--good); }
+
+    .num {
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    aside {
+      min-width: 0;
+      border-left: 1px solid var(--line);
+      background: var(--panel);
+      padding: 18px;
+      box-shadow: -8px 0 24px rgba(34, 44, 40, 0.06);
+      overflow: auto;
+      max-height: 100vh;
+      position: sticky;
+      top: 0;
+    }
+
+    .drawer-empty {
+      color: var(--muted);
+      margin-top: 40px;
+      font-size: 14px;
+    }
+
+    .drawer-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+      letter-spacing: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .drawer-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 14px 0;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin: 12px 0 16px;
+    }
+
+    .meta-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px;
+      min-width: 0;
+      background: #fbfcfa;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0;
+      margin-bottom: 3px;
+    }
+
+    .value {
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .section-title {
+      margin: 18px 0 8px;
+      color: #33403b;
+      font-size: 13px;
+      font-weight: 720;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    .components, .evidence {
+      display: grid;
+      gap: 8px;
+    }
+
+    .component-row {
+      display: grid;
+      grid-template-columns: 110px 1fr 54px;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .bar {
+      height: 8px;
+      background: #e7ebe6;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar span {
+      display: block;
+      height: 100%;
+      background: var(--accent);
+    }
+
+    .evidence-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fbfcfa;
+    }
+
+    .evidence-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .evidence-text {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-size: 13px;
+    }
+
+    .notice {
+      border: 1px solid var(--line-strong);
+      background: #fffaf0;
+      color: #543a0b;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 980px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        position: static;
+        max-height: none;
+        border-left: 0;
+        border-top: 1px solid var(--line);
+      }
+
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .controls {
+        justify-content: flex-start;
+      }
+
+      .drawer-title {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .table-wrap {
+        max-height: 62vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <main>
+      <header>
+        <div>
+          <h1>Concept Loom</h1>
+          <div id="status" class="status">Loading concepts...</div>
+        </div>
+        <div class="controls">
+          <div class="segmented" aria-label="Concept view">
+            <button id="view-nascent" class="active" type="button">Nascent</button>
+            <button id="view-all" type="button">All</button>
+          </div>
+          <label class="limit">Limit
+            <select id="limit">
+              <option>50</option>
+              <option selected>100</option>
+              <option>250</option>
+              <option>500</option>
+            </select>
+          </label>
+          <label class="search">Search
+            <input id="search" type="search" autocomplete="off" spellcheck="false">
+          </label>
+          <button id="refresh" type="button">Refresh</button>
+        </div>
+      </header>
+
+      <div class="table-wrap">
+        <table>
+          <colgroup>
+            <col style="width: 22%">
+            <col style="width: 13%">
+            <col style="width: 8%">
+            <col style="width: 8%">
+            <col style="width: 10%">
+            <col style="width: 12%">
+            <col style="width: 12%">
+            <col style="width: 9%">
+            <col style="width: 26%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="sortable" data-sort="title">Title</th>
+              <th class="sortable" data-sort="concept_type">Type</th>
+              <th class="sortable" data-sort="score">Score</th>
+              <th class="sortable" data-sort="evidence_count">Evidence</th>
+              <th class="sortable" data-sort="confidence_grade">Confidence</th>
+              <th class="sortable" data-sort="first_seen">First Seen</th>
+              <th class="sortable" data-sort="last_seen">Last Seen</th>
+              <th>Signals</th>
+              <th>Summary</th>
+            </tr>
+          </thead>
+          <tbody id="concept-rows"></tbody>
+        </table>
+      </div>
+    </main>
+
+    <aside id="drawer">
+      <div class="drawer-empty">Select a concept to inspect its card and evidence.</div>
+    </aside>
+  </div>
+
+  <script>
+    const state = {
+      view: "nascent",
+      limit: 100,
+      rows: [],
+      selectedId: null,
+      sortKey: "score",
+      sortDir: "desc",
+      query: ""
+    };
+
+    const statusEl = document.getElementById("status");
+    const rowsEl = document.getElementById("concept-rows");
+    const drawerEl = document.getElementById("drawer");
+    const limitEl = document.getElementById("limit");
+    const searchEl = document.getElementById("search");
+    const viewNascentEl = document.getElementById("view-nascent");
+    const viewAllEl = document.getElementById("view-all");
+
+    function fmt(value, digits = 3) {
+      if (value === null || value === undefined || value === "") return "-";
+      if (typeof value === "number") return value.toFixed(digits);
+      const n = Number(value);
+      return Number.isFinite(n) ? n.toFixed(digits) : String(value);
+    }
+
+    function shortDate(value) {
+      if (!value) return "-";
+      return String(value).replace("T", " ").replace(/\.\d+$/, "");
+    }
+
+    function text(value) {
+      return value === null || value === undefined || value === "" ? "-" : String(value);
+    }
+
+    function filteredRows() {
+      const query = state.query.trim().toLowerCase();
+      if (!query) return state.rows;
+      return state.rows.filter((row) => {
+        const haystack = [
+          row.title,
+          row.summary,
+          row.concept_type,
+          row.confidence_grade,
+          ...(row.source_systems || [])
+        ].join(" ").toLowerCase();
+        return haystack.includes(query);
+      });
+    }
+
+    function compare(a, b, key) {
+      const av = a[key];
+      const bv = b[key];
+      if (typeof av === "number" || typeof bv === "number") {
+        return (Number(av) || 0) - (Number(bv) || 0);
+      }
+      return String(av || "").localeCompare(String(bv || ""), undefined, { numeric: true, sensitivity: "base" });
+    }
+
+    function sortedRows() {
+      const dir = state.sortDir === "asc" ? 1 : -1;
+      return [...filteredRows()].sort((a, b) => compare(a, b, state.sortKey) * dir);
+    }
+
+    function updateSortHeaders() {
+      document.querySelectorAll("th.sortable").forEach((th) => {
+        th.classList.toggle("sorted-asc", th.dataset.sort === state.sortKey && state.sortDir === "asc");
+        th.classList.toggle("sorted-desc", th.dataset.sort === state.sortKey && state.sortDir === "desc");
+      });
+    }
+
+    function renderRows() {
+      updateSortHeaders();
+      rowsEl.innerHTML = "";
+      const rows = sortedRows();
+      if (!rows.length) {
+        rowsEl.innerHTML = '<tr><td colspan="9" class="status">No concepts match the current filters.</td></tr>';
+        return;
+      }
+      for (const row of rows) {
+        const tr = document.createElement("tr");
+        tr.className = row.concept_id === state.selectedId ? "selected" : "";
+        tr.innerHTML = `
+          <td class="title-cell">${escapeHtml(row.title)}</td>
+          <td><span class="type-pill">${escapeHtml(row.concept_type)}</span></td>
+          <td class="num">${fmt(row.score)}</td>
+          <td class="num">${text(row.evidence_count)}</td>
+          <td><span class="grade-pill">${escapeHtml(row.confidence_grade)}</span></td>
+          <td class="num">${escapeHtml(shortDate(row.first_seen))}</td>
+          <td class="num">${escapeHtml(shortDate(row.last_seen))}</td>
+          <td>${signalPills(row)}</td>
+          <td class="summary-cell"><div class="summary-clip">${escapeHtml(row.summary)}</div></td>
+        `;
+        tr.addEventListener("click", () => selectConcept(row.concept_id));
+        rowsEl.appendChild(tr);
+      }
+    }
+
+    function signalPills(row) {
+      const parts = [];
+      if (row.pinned) parts.push('<span class="flag-pill good">Pinned</span>');
+      if (row.nascent) parts.push('<span class="flag-pill">Nascent</span>');
+      return parts.join(" ") || "-";
+    }
+
+    function escapeHtml(value) {
+      return text(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    async function api(path, options) {
+      const res = await fetch(path, options);
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return res.json();
+    }
+
+    async function loadConcepts() {
+      statusEl.textContent = "Loading concepts...";
+      try {
+        state.rows = await api(`/api/concepts?view=${encodeURIComponent(state.view)}&limit=${state.limit}`);
+        const visible = filteredRows().length;
+        statusEl.textContent = `${visible}/${state.rows.length} ${state.view} concepts loaded`;
+        renderRows();
+        const rows = sortedRows();
+        if (!state.selectedId && rows.length) {
+          await selectConcept(sortedRows()[0].concept_id);
+        } else if (state.selectedId) {
+          renderRows();
+        }
+      } catch (err) {
+        statusEl.textContent = `Load failed: ${err.message}`;
+      }
+    }
+
+    async function selectConcept(conceptId) {
+      state.selectedId = conceptId;
+      renderRows();
+      drawerEl.innerHTML = '<div class="drawer-empty">Loading concept...</div>';
+      try {
+        const [concept, evidence] = await Promise.all([
+          api(`/api/concepts/${encodeURIComponent(conceptId)}`),
+          api(`/api/concepts/${encodeURIComponent(conceptId)}/evidence?limit=25`)
+        ]);
+        renderDrawer(concept, evidence);
+      } catch (err) {
+        drawerEl.innerHTML = `<div class="notice">Failed to load concept: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    function renderDrawer(concept, evidence) {
+      const components = concept.score_components || {};
+      drawerEl.innerHTML = `
+        <div class="drawer-title">
+          <h2>${escapeHtml(concept.title)}</h2>
+          <span class="type-pill">${escapeHtml(concept.concept_type)}</span>
+        </div>
+        <div class="status">${escapeHtml(concept.summary)}</div>
+        <div class="drawer-actions">
+          <button id="pin-toggle" class="${concept.pinned ? "primary" : ""}" type="button">${concept.pinned ? "Unpin" : "Pin"}</button>
+          <button id="verify" type="button">Verify Evidence</button>
+        </div>
+        <div class="meta-grid">
+          ${meta("Score", fmt(concept.score))}
+          ${meta("Evidence", concept.evidence_count)}
+          ${meta("Confidence", concept.confidence_grade)}
+          ${meta("Nascent", concept.nascent ? "Yes" : "No")}
+          ${meta("First Seen", shortDate(concept.first_seen))}
+          ${meta("Last Seen", shortDate(concept.last_seen))}
+        </div>
+        <div class="section-title">Score Components</div>
+        <div class="components">${componentRows(components)}</div>
+        <div id="verify-result"></div>
+        <div class="section-title">Evidence</div>
+        <div class="evidence">${evidenceRows(evidence)}</div>
+      `;
+      document.getElementById("pin-toggle").addEventListener("click", async () => {
+        await togglePin(concept.concept_id, !concept.pinned);
+      });
+      document.getElementById("verify").addEventListener("click", () => verifyEvidence(concept.concept_id));
+    }
+
+    function meta(label, value) {
+      return `<div class="meta-item"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(text(value))}</div></div>`;
+    }
+
+    function componentRows(components) {
+      const entries = Object.entries(components);
+      if (!entries.length) return '<div class="status">No score components recorded.</div>';
+      return entries.map(([key, value]) => {
+        const num = Math.max(0, Math.min(1, Number(value) || 0));
+        return `
+          <div class="component-row">
+            <div>${escapeHtml(key)}</div>
+            <div class="bar"><span style="width:${num * 100}%"></span></div>
+            <div class="num">${fmt(num)}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function evidenceRows(evidence) {
+      if (!evidence.length) return '<div class="status">No evidence rows returned.</div>';
+      return evidence.map((row) => `
+        <div class="evidence-item">
+          <div class="evidence-meta">
+            <span>${escapeHtml(row.source_system)}</span>
+            <span>${escapeHtml(row.source_class)}</span>
+            <span>${escapeHtml(shortDate(row.ts))}</span>
+            <span>${escapeHtml(row.evidence_id)}</span>
+          </div>
+          <div class="evidence-text">${escapeHtml(row.text)}</div>
+        </div>
+      `).join("");
+    }
+
+    async function togglePin(conceptId, pinned) {
+      try {
+        await api(`/api/actions/pin/${encodeURIComponent(conceptId)}?pinned=${pinned}`, { method: "POST" });
+        await loadConcepts();
+        await selectConcept(conceptId);
+      } catch (err) {
+        document.getElementById("verify-result").innerHTML = `<div class="notice">Pin failed: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    async function verifyEvidence(conceptId) {
+      const resultEl = document.getElementById("verify-result");
+      resultEl.innerHTML = '<div class="notice">Verifying evidence pointers...</div>';
+      try {
+        const results = await api(`/api/evidence/${encodeURIComponent(conceptId)}/verify?limit=25`);
+        const ok = results.filter((row) => row.verification && row.verification.ok).length;
+        resultEl.innerHTML = `<div class="notice">${ok}/${results.length} evidence pointers verified.</div>`;
+      } catch (err) {
+        resultEl.innerHTML = `<div class="notice">Verification failed: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    document.querySelectorAll("th.sortable").forEach((th) => {
+      th.addEventListener("click", () => {
+        const key = th.dataset.sort;
+        if (state.sortKey === key) {
+          state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+        } else {
+          state.sortKey = key;
+          state.sortDir = ["title", "concept_type", "confidence_grade", "first_seen", "last_seen"].includes(key) ? "asc" : "desc";
+        }
+        renderRows();
+      });
+    });
+
+    viewNascentEl.addEventListener("click", () => {
+      state.view = "nascent";
+      viewNascentEl.classList.add("active");
+      viewAllEl.classList.remove("active");
+      loadConcepts();
+    });
+
+    viewAllEl.addEventListener("click", () => {
+      state.view = "all";
+      viewAllEl.classList.add("active");
+      viewNascentEl.classList.remove("active");
+      loadConcepts();
+    });
+
+    limitEl.addEventListener("change", () => {
+      state.limit = Number(limitEl.value);
+      loadConcepts();
+    });
+
+    searchEl.addEventListener("input", () => {
+      state.query = searchEl.value;
+      const visible = filteredRows().length;
+      statusEl.textContent = `${visible}/${state.rows.length} ${state.view} concepts loaded`;
+      renderRows();
+    });
+
+    document.getElementById("refresh").addEventListener("click", loadConcepts);
+
+    loadConcepts();
+  </script>
+</body>
+</html>
