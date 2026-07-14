@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#07070e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Concept Loom">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<link rel="icon" href="/static/loom-icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/loom-icon-192.png">
+<title>Concept Loom — Orbit</title>
+<style>
+  :root {
+    --bg: #07070e;
+    --panel: #10101c;
+    --panel-edge: #23233a;
+    --text: #d8dbe6;
+    --dim: #8a8fa3;
+    --faint: #565b70;
+    --accent: #e8a33d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; height: 100dvh; background: var(--bg); color: var(--text);
+    font: 14px/1.45 "Inter", "Segoe UI", system-ui, sans-serif; overflow: hidden; }
+
+  #canvas-wrap { position: absolute; inset: 0; overscroll-behavior: none; }
+  svg { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+  svg:active { cursor: grabbing; }
+
+  .hud { position: absolute; border-radius: 14px; padding: 14px 16px;
+    background: linear-gradient(135deg, rgba(255,255,255,.075), rgba(255,255,255,.015) 45%, rgba(255,255,255,.045)),
+      color-mix(in srgb, var(--panel) 62%, transparent);
+    border: 1px solid rgba(255,255,255,.13);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(0,0,0,.25),
+      0 10px 32px rgba(0,0,0,.45);
+    backdrop-filter: blur(16px) saturate(1.35); cursor: grab; }
+  .hud input, .hud button, .hud a, .hud label, .hud .type-toggle { cursor: pointer; }
+  .hud input[type=text], #search { cursor: text; }
+
+  #topbar { top: 16px; left: 16px; display: flex; gap: 10px; align-items: center; }
+  #topbar h1 { font-size: 15px; font-weight: 700; letter-spacing: .12em; color: var(--accent); }
+  #topbar a { color: var(--dim); text-decoration: none; font-size: 12px; border: 1px solid var(--panel-edge);
+    padding: 4px 10px; border-radius: 6px; }
+  #topbar a:hover { color: var(--text); }
+  #search { background: #0c0c16; border: 1px solid var(--panel-edge); color: var(--text);
+    border-radius: 6px; padding: 6px 10px; width: 210px; outline: none; }
+  #search:focus { border-color: var(--accent); }
+
+  #legend { top: 16px; right: 16px; width: 250px; font-size: 12px; color: var(--dim); }
+  #legend h2 { font-size: 11px; letter-spacing: .14em; color: var(--faint); margin-bottom: 8px; }
+  #legend .row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+  #legend .swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  #legend .enc { margin-bottom: 10px; }
+  #legend .enc b { color: var(--text); font-weight: 600; }
+  .type-toggle { cursor: pointer; user-select: none; }
+  .type-toggle.off { opacity: .28; }
+
+  #timebar { bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; align-items: center; }
+  #timebar button { background: transparent; border: 1px solid var(--panel-edge); color: var(--dim);
+    border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 12px; }
+  #timebar button.active { color: var(--accent); border-color: var(--accent); }
+  #timebar .label { font-size: 11px; letter-spacing: .1em; color: var(--faint); margin-right: 6px; }
+  .slider-val { font-size: 12px; color: var(--accent); min-width: 58px; text-align: left; }
+
+  #status { bottom: 16px; left: 16px; font-size: 11px; color: var(--faint); }
+
+  /* drawer */
+  #drawer { position: absolute; top: 0; right: 0; height: 100%; width: 430px; max-width: 92vw;
+    background: linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.01) 40%),
+      color-mix(in srgb, var(--panel) 82%, transparent);
+    backdrop-filter: blur(18px) saturate(1.3);
+    box-shadow: inset 1px 0 0 rgba(255,255,255,.1), -12px 0 40px rgba(0,0,0,.5);
+    border-left: 1px solid rgba(255,255,255,.12); transform: translateX(105%);
+    transition: transform .25s ease; overflow-y: auto; padding: 22px; z-index: 20; }
+  #drawer.open { transform: none; }
+  #drawer .close { position: absolute; top: 14px; right: 16px; background: none; border: none;
+    color: var(--dim); font-size: 20px; cursor: pointer; }
+  #drawer h2 { font-size: 18px; margin: 4px 0 2px; padding-right: 30px; }
+  #drawer .meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+  .badge { font-size: 11px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--panel-edge); color: var(--dim); }
+  .badge.type { color: #fff; border: none; }
+  #drawer .summary { color: var(--text); margin: 10px 0 14px; }
+  #drawer h3 { font-size: 11px; letter-spacing: .14em; color: var(--faint); margin: 16px 0 8px; }
+  .score-row { display: grid; grid-template-columns: 130px 1fr 38px; gap: 8px; align-items: center;
+    font-size: 12px; color: var(--dim); margin: 3px 0; }
+  .score-bar { height: 5px; background: #1c1c2e; border-radius: 3px; overflow: hidden; }
+  .score-bar i { display: block; height: 100%; background: var(--accent); }
+  .alias { display: inline-block; font-size: 12px; color: var(--dim); background: #171728;
+    padding: 2px 8px; border-radius: 5px; margin: 2px 3px 2px 0; }
+  .ev { border: 1px solid var(--panel-edge); border-radius: 8px; padding: 10px 12px; margin: 8px 0;
+    font-size: 12.5px; }
+  .ev .src { color: var(--faint); font-size: 11px; margin-bottom: 5px; display: flex; gap: 8px; }
+  .ev .txt { color: var(--text); white-space: pre-wrap; max-height: 130px; overflow: hidden; }
+  .ev.expanded .txt { max-height: none; }
+  .ev .more { color: var(--accent); font-size: 11px; cursor: pointer; margin-top: 4px; }
+  .vbadge { font-size: 10px; padding: 1px 7px; border-radius: 999px; }
+  .vbadge.ok { background: #12331c; color: #7fd89a; }
+  .vbadge.bad { background: #3a1414; color: #e08b8b; }
+  #drawer .actions { display: flex; gap: 8px; margin-top: 6px; }
+  #drawer .actions button { background: transparent; border: 1px solid var(--panel-edge); color: var(--dim);
+    border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 12px; }
+  #drawer .actions button:hover { color: var(--text); border-color: var(--dim); }
+  #drawer .actions button.pinned { color: var(--accent); border-color: var(--accent); }
+
+  #tooltip { position: absolute; pointer-events: none;
+    background: linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.02)), rgba(16,16,28,.82);
+    border: 1px solid rgba(255,255,255,.14);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 8px 24px rgba(0,0,0,.45);
+    backdrop-filter: blur(14px) saturate(1.3);
+    border-radius: 10px; padding: 8px 12px; font-size: 12.5px; z-index: 30;
+    display: none; max-width: 300px; }
+  #tooltip .t { font-weight: 600; color: var(--text); }
+  #tooltip .d { color: var(--faint); font-size: 11px; margin-top: 2px; }
+
+  .slider-row { display: grid; grid-template-columns: 92px 1fr; gap: 8px; align-items: center; margin: 7px 0; }
+  .slider-row label { font-size: 11.5px; color: var(--dim); }
+  input[type=range] { -webkit-appearance: none; height: 4px; background: #23233a; border-radius: 2px; outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px;
+    border-radius: 50%; background: var(--accent); cursor: pointer; }
+
+  .ring-label { fill: var(--faint); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; }
+  .node-label { fill: var(--dim); font-size: 10.5px; pointer-events: none; }
+  .node { cursor: pointer; }
+  .node:hover { stroke: #fff; stroke-width: 1.5; }
+
+  #mobile-tools { display: none; }
+  @media (max-width: 760px), (pointer: coarse) {
+    .hud { padding: 11px 12px; border-radius: 12px; }
+    #topbar { top: max(10px, env(safe-area-inset-top)); left: 10px; right: 10px;
+      max-width: calc(100vw - 20px); gap: 7px; }
+    #topbar h1 { font-size: 12px; white-space: nowrap; }
+    #search { min-width: 0; width: 100%; font-size: 16px; }
+    #topbar a { display: none; }
+    #legend, #controls { display: none; top: 70px !important; right: 10px !important;
+      left: 10px !important; bottom: auto !important; width: auto !important;
+      max-height: calc(100dvh - 150px); overflow-y: auto; transform: none !important; }
+    #legend.mobile-open, #controls.mobile-open { display: block; }
+    #timebar { left: 10px !important; right: 10px !important; bottom: max(10px, env(safe-area-inset-bottom)) !important;
+      transform: none !important; overflow-x: auto; max-width: calc(100vw - 20px); }
+    #timebar .label { white-space: nowrap; }
+    #timebar input[type=range] { min-width: 92px; }
+    #status { display: none; }
+    #drawer { width: 100%; max-width: 100vw; padding: 20px 18px calc(24px + env(safe-area-inset-bottom)); }
+    #drawer .close { min-width: 44px; min-height: 44px; top: max(6px, env(safe-area-inset-top)); }
+    input[type=range] { min-height: 28px; }
+    input[type=range]::-webkit-slider-thumb { width: 22px; height: 22px; }
+    #mobile-tools { position: absolute; z-index: 18; display: flex; gap: 7px;
+      right: 10px; bottom: calc(72px + env(safe-area-inset-bottom)); }
+    #mobile-tools button { width: 44px; height: 44px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.16); color: var(--text); background: rgba(16,16,28,.82);
+      backdrop-filter: blur(14px); box-shadow: 0 7px 22px rgba(0,0,0,.38); font-size: 17px; }
+    .ev .txt { max-height: 180px; }
+  }
+</style>
+</head>
+<body>
+<div id="canvas-wrap"><svg id="svg"></svg></div>
+
+<div class="hud" id="topbar">
+  <h1>CONCEPT LOOM</h1>
+  <input id="search" placeholder="filter concepts…" autocomplete="off">
+  <button id="layout-toggle" style="background:transparent;border:1px solid var(--panel-edge);color:var(--accent);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px">graph</button>
+  <a href="/">table lens</a>
+</div>
+
+<div class="hud" id="legend">
+  <h2>ENCODINGS — INSPECTABLE, NOT DECORATIVE</h2>
+  <div class="enc">
+    <div class="row"><b>links</b>&nbsp;= concepts sharing evidence sessions (brighter + thicker = stronger)</div>
+    <div class="row"><b>position</b>&nbsp;= radial: concentrated core → nascent rim, linked concepts rotate together · sectors: one wedge per type, strongest at the inner edge · graph: relational clusters · orbit: attention bands</div>
+    <div class="row"><b>size</b>&nbsp;= composite score (frequency, diversity, momentum…)</div>
+    <div class="row"><b>brightness</b>&nbsp;= recency of last evidence</div>
+    <div class="row"><b>color</b>&nbsp;= concept type (click to toggle):</div>
+  </div>
+  <div id="type-legend"></div>
+</div>
+
+<div class="hud" id="controls" style="right:16px;bottom:16px;top:auto;width:250px;font-size:12px;color:var(--dim)">
+  <h2 style="font-size:11px;letter-spacing:.14em;color:var(--faint);margin-bottom:8px">TUNING</h2>
+  <div class="slider-row"><label>Clustering</label>
+    <input type="range" id="s-cluster" min="0" max="100" value="55"></div>
+  <div class="slider-row"><label>Color grouping</label>
+    <input type="range" id="s-color" min="0" max="100" value="0"></div>
+  <div class="slider-row"><label>Link visibility</label>
+    <input type="range" id="s-links" min="0" max="100" value="55"></div>
+  <div class="slider-row"><label>Sphere size</label>
+    <input type="range" id="s-size" min="30" max="200" value="100"></div>
+  <div class="slider-row"><label>Normalize</label>
+    <input type="range" id="s-norm" min="0" max="100" value="50"></div>
+  <div class="slider-row"><label>Spread</label>
+    <input type="range" id="s-spread" min="50" max="180" value="100"></div>
+  <div class="slider-row"><label>Dome</label>
+    <input type="range" id="s-dome" min="-100" max="100" value="45"></div>
+  <div class="slider-row"><label>Rotation</label>
+    <input type="range" id="s-rot" min="0" max="360" value="0"></div>
+  <div class="slider-row"><label>Spin</label>
+    <input type="range" id="s-spin" min="0" max="100" value="0"></div>
+</div>
+
+<div class="hud" id="timebar">
+  <span class="label">ACTIVE WITHIN</span>
+  <input type="range" id="s-days" min="1" max="100" value="100" style="width:150px">
+  <span class="slider-val" id="v-days">all time</span>
+  <span class="label" style="margin-left:14px">SHOW TOP</span>
+  <input type="range" id="s-top" min="0" max="100" value="65" style="width:150px">
+  <span class="slider-val" id="v-top">400</span>
+</div>
+
+<div class="hud" id="status"></div>
+
+<div id="drawer">
+  <button class="close" onclick="closeDrawer()">×</button>
+  <div id="drawer-body"></div>
+</div>
+
+<div id="tooltip"></div>
+<div id="mobile-tools" aria-label="View controls">
+  <button id="mobile-fit" type="button" aria-label="Reset view">⌂</button>
+  <button id="mobile-tune" type="button" aria-label="Open tuning controls">⌁</button>
+  <button id="mobile-info" type="button" aria-label="Open legend">i</button>
+</div>
+
+<script>
+"use strict";
+
+const TYPE_COLORS = {
+  theme:                 "#8f7ee8",
+  build_proposal:        "#e8a33d",
+  operating_principle:   "#4fae8a",
+  product_idea:          "#e86ec0",
+  relationship_covenant: "#e8d54f",
+  system_behavior:       "#5b8fe8",
+  risk:                  "#e85b5b",
+  unresolved_question:   "#5bd6e8",
+  recurring_phrase:      "#9aa46b",
+};
+const TYPE_LABELS = {
+  theme: "theme", build_proposal: "build proposal", operating_principle: "operating principle",
+  product_idea: "product idea", relationship_covenant: "relationship / covenant",
+  system_behavior: "system behavior", risk: "risk",
+  unresolved_question: "unresolved question", recurring_phrase: "recurring phrase",
+};
+const RING_DEFS = [
+  { key: "emerging",    label: "emerging" },
+  { key: "active",      label: "active" },
+  { key: "established", label: "established" },
+  { key: "dormant",     label: "dormant" },
+];
+
+let concepts = [];
+let edges = [];
+let typeOff = new Set();
+let windowDays = 9999;
+let topN = 400;
+let searchTerm = "";
+let layoutMode = "radial";          // "radial" (score rings + links) | "sectors" (type wedges) | "graph" | "orbit"
+// radial and sectors share the same projection machinery (placeRadial, dome, spin)
+function radialLike() { return layoutMode === "radial" || layoutMode === "sectors"; }
+let viewTransform = { x: 0, y: 0, k: 1 };
+let sim = null;                      // running force simulation handle
+const tune = { cluster: 0.55, colorG: 0.0, links: 0.55, size: 1.0, norm: 0.5, spread: 1.0, dome: 0.45, rot: 0, spin: 0 };
+
+const svg = document.getElementById("svg");
+const tooltip = document.getElementById("tooltip");
+const NS = "http://www.w3.org/2000/svg";
+
+function daysSince(iso) {
+  if (!iso) return 9999;
+  return (Date.now() - new Date(iso).getTime()) / 86400000;
+}
+
+// Attention band: emerging innermost, then recently-active, then
+// established, dormant outermost. Percentile-based so rings stay meaningful
+// whatever the corpus time-depth (this one is only ~2 months deep, so
+// absolute-day thresholds would put everything in one band).
+let agePct = new Map(), recPct = new Map();
+function computePercentiles() {
+  const byAge = [...concepts].sort((a, b) => daysSince(a.first_seen) - daysSince(b.first_seen));
+  byAge.forEach((c, i) => agePct.set(c.concept_id, i / Math.max(1, byAge.length - 1)));
+  const byRec = [...concepts].sort((a, b) => daysSince(a.last_seen) - daysSince(b.last_seen));
+  byRec.forEach((c, i) => recPct.set(c.concept_id, i / Math.max(1, byRec.length - 1)));
+}
+function band(c) {
+  const age = agePct.get(c.concept_id) ?? 1;   // 0 = newest first-seen
+  const rec = recPct.get(c.concept_id) ?? 1;   // 0 = most recently active
+  if (age <= 0.18 && rec <= 0.5) return 0;     // newly born and still moving
+  if (rec <= 0.33) return 1;                   // active lately
+  if (rec <= 0.75) return 2;                   // established, quieter
+  return 3;                                    // dormant tail
+}
+
+function visible(c) {
+  if (typeOff.has(c.concept_type)) return false;
+  if (daysSince(c.last_seen) > windowDays) return false;
+  if (searchTerm && !(c.title || "").toLowerCase().includes(searchTerm)) return false;
+  return true;
+}
+
+// ---- sphere gradients -------------------------------------------------
+function shade(hex, f) { // f > 0 lighten toward white, f < 0 darken
+  const n = parseInt(hex.slice(1), 16);
+  let r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  const mix = f > 0 ? 255 : 0, m = Math.abs(f);
+  r = Math.round(r + (mix - r) * m); g = Math.round(g + (mix - g) * m); b = Math.round(b + (mix - b) * m);
+  return `rgb(${r},${g},${b})`;
+}
+function buildDefs(rootG) {
+  const defs = document.createElementNS(NS, "defs");
+  for (const [type, col] of Object.entries(TYPE_COLORS)) {
+    const gr = document.createElementNS(NS, "radialGradient");
+    gr.setAttribute("id", "grad-" + type);
+    gr.setAttribute("cx", "33%"); gr.setAttribute("cy", "27%"); gr.setAttribute("r", "80%");
+    // liquid glass: hot specular point, translucent body, dark refractive base
+    [[0, shade(col, .92)], [0.14, shade(col, .55)], [0.42, col],
+     [0.75, shade(col, -.28)], [1, shade(col, -.62)]].forEach(([o, c]) => {
+      const st = document.createElementNS(NS, "stop");
+      st.setAttribute("offset", o); st.setAttribute("stop-color", c);
+      gr.appendChild(st);
+    });
+    defs.appendChild(gr);
+  }
+  rootG.appendChild(defs);
+}
+
+function visSet() {
+  let vis = concepts.filter(visible);
+  // cognitive-load valve: show only the strongest N unless asked otherwise
+  return vis.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, topN);
+}
+function sizeScale(vis) {
+  // rank-based sizing: scores bunch tightly, so percentile gives contrast
+  const ranked = [...vis].sort((a, b) => (a.score || 0) - (b.score || 0));
+  const pct = new Map(ranked.map((c, i) => [c.concept_id, i / Math.max(1, ranked.length - 1)]));
+  // normalize blends between full score contrast (0) and uniform spheres (1)
+  return c => {
+    const contrast = 3 + 14 * Math.pow(pct.get(c.concept_id) ?? 0, 2.2);
+    const uniform = 8.5;
+    return (contrast + (uniform - contrast) * tune.norm) * tune.size;
+  };
+}
+
+// weight-emphasized edge: strong links glow, weak links whisper
+function drawEdge(g, e, wMax) {
+  const t = Math.min(1, e.weight / Math.max(2, wMax));   // 0..1 strength
+  const ln = document.createElementNS(NS, "line");
+  const cold = [63, 63, 96], warm = [122, 156, 255];      // slate → glow blue
+  const col = cold.map((c, i) => Math.round(c + (warm[i] - c) * t));
+  ln.setAttribute("stroke", `rgb(${col.join(",")})`);
+  ln.setAttribute("stroke-width", (0.4 + 3.2 * t * t) * (0.4 + tune.links));
+  ln.setAttribute("stroke-opacity",
+    Math.min(0.9, (0.08 + 0.75 * t) * (0.25 + tune.links * 1.2)));
+  g.appendChild(ln);
+  return ln;
+}
+function drawNode(g, c, r) {
+  const rec = daysSince(c.last_seen);
+  const bright = Math.max(0.35, Math.min(1, 1.05 - rec / 120));
+  const dot = document.createElementNS(NS, "circle");
+  dot.setAttribute("r", r);
+  dot.setAttribute("fill", `url(#grad-${c.concept_type in TYPE_COLORS ? c.concept_type : "theme"})`);
+  dot.setAttribute("fill-opacity", bright);
+  dot.setAttribute("class", "node");
+  // glass rim: faint bright edge catches the light
+  dot.setAttribute("stroke", "rgba(255,255,255,.22)");
+  dot.setAttribute("stroke-width", "0.8");
+  if (c.pinned) { dot.setAttribute("stroke", "#e8a33d"); dot.setAttribute("stroke-width", "2"); }
+  dot.addEventListener("click", () => { if (!suppressClick) openDrawer(c.concept_id); });
+  dot.addEventListener("mousemove", e => showTip(e, c));
+  dot.addEventListener("mouseleave", hideTip);
+  g.appendChild(dot);
+  return dot;
+}
+function drawLabel(g, c, r) {
+  const lab = document.createElementNS(NS, "text");
+  lab.setAttribute("class", "node-label");
+  lab.textContent = c.title.length > 34 ? c.title.slice(0, 33) + "…" : c.title;
+  g.appendChild(lab);
+  c._lab = lab; c._labR = r;
+  return lab;
+}
+function statusLine(visCount) {
+  document.getElementById("status").textContent =
+    `${visCount} of ${concepts.length} concepts · ${edges.length} links · ` +
+    `${layoutMode} layout · window ${windowDays >= 9999 ? "all time" : windowDays + "d"}`;
+}
+
+// ---- orbit (rings) layout --------------------------------------------
+function renderOrbit(g, vis, W, H) {
+  const cx = W / 2, cy = H / 2;
+  const byBand = [[], [], [], []];
+  for (const c of vis) byBand[band(c)].push(c);
+  for (const arr of byBand) arr.sort((a, b) => b.score - a.score);
+  const maxR = Math.min(W, H) / 2 - 60;
+  const bandEdges = [0.16, 0.42, 0.68, 0.94].map(f => maxR * f);
+  RING_DEFS.forEach((rd, i) => {
+    const ring = document.createElementNS(NS, "circle");
+    ring.setAttribute("cx", cx); ring.setAttribute("cy", cy); ring.setAttribute("r", bandEdges[i]);
+    ring.setAttribute("fill", "none"); ring.setAttribute("stroke", "#1d1d30");
+    ring.setAttribute("stroke-dasharray", "2 5");
+    g.appendChild(ring);
+    const lab = document.createElementNS(NS, "text");
+    lab.setAttribute("x", cx); lab.setAttribute("y", cy - bandEdges[i] - 8);
+    lab.setAttribute("text-anchor", "middle"); lab.setAttribute("class", "ring-label");
+    lab.textContent = `${rd.label} · ${byBand[i].length}`;
+    g.appendChild(lab);
+  });
+  const rScale = sizeScale(vis);
+  const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+  byBand.forEach((arr, bi) => {
+    if (!arr.length) return;
+    const rInner = bi === 0 ? 30 : bandEdges[bi - 1] + 18;
+    const rOuter = bandEdges[bi] - 8;
+    arr.forEach((c, i) => {
+      const t = arr.length === 1 ? 0.5 : i / (arr.length - 1);
+      const rr = rInner + (rOuter - rInner) * t;
+      const a = i * GOLDEN;
+      c._x = cx + rr * Math.cos(a); c._y = cy + rr * Math.sin(a);
+      const dot = drawNode(g, c, rScale(c));
+      dot.setAttribute("cx", c._x); dot.setAttribute("cy", c._y);
+    });
+    for (const c of arr.slice(0, bi === 0 ? 8 : 5)) {
+      const lab = drawLabel(g, c, rScale(c));
+      lab.setAttribute("x", c._x + rScale(c) + 4); lab.setAttribute("y", c._y + 3.5);
+    }
+  });
+  statusLine(vis.length);
+}
+
+// ---- radial layout: big spheres inside, nascent rim, links rotate kin together.
+// Layout solves angles once; placeRadial() re-projects (rotation + dome) cheaply.
+let radialState = null;
+
+function renderRadial(g, vis, W, H) {
+  const cx = W / 2, cy = H / 2;
+  const rScale = sizeScale(vis);
+  const sorted = [...vis].sort((a, b) => (b.score || 0) - (a.score || 0));
+  const idset = new Set(vis.map(c => c.concept_id));
+  const evis = edges.filter(e => idset.has(e.source) && idset.has(e.target));
+  const wMax = evis.reduce((m, e) => Math.max(m, e.weight), 2);
+
+  // build concentric rings whose capacity grows with circumference;
+  // biggest (highest-score) spheres fill the innermost rings
+  const rings = [];
+  let radius = 68 * tune.spread;
+  let i = 0;
+  while (i < sorted.length) {
+    const biggest = rScale(sorted[i]);
+    const slotArc = Math.max(biggest * 2.4 + 6, 16);
+    const cap = Math.max(6, Math.floor((2 * Math.PI * radius) / slotArc));
+    const members = sorted.slice(i, i + cap);
+    rings.push({ radius, members });
+    i += cap;
+    radius += Math.max(biggest * 2.1, 26) * tune.spread;
+  }
+  const maxR = radius;
+
+  // initial angles: even spacing, alternating ring phase
+  const ang = new Map();
+  rings.forEach((ring, ri) => {
+    const n = ring.members.length;
+    ring.members.forEach((c, j) => ang.set(c.concept_id, (j / n) * 2 * Math.PI + ri * 0.35));
+  });
+
+  // one collision pass: enforce minimum angular separation within a ring
+  function collide() {
+    for (const ring of rings) {
+      const ms = [...ring.members].sort((a, b) => ang.get(a.concept_id) - ang.get(b.concept_id));
+      const minSep = (2 * Math.PI) / Math.max(ms.length * 1.15, 8);
+      for (let j = 0; j < ms.length; j++) {
+        const a = ms[j], b = ms[(j + 1) % ms.length];
+        let d = ang.get(b.concept_id) - ang.get(a.concept_id);
+        if (j === ms.length - 1) d += 2 * Math.PI;
+        if (d < minSep) {
+          const push = (minSep - d) / 2;
+          ang.set(a.concept_id, ang.get(a.concept_id) - push);
+          ang.set(b.concept_id, ang.get(b.concept_id) + push);
+        }
+      }
+    }
+  }
+
+  // angular relaxation: linked concepts rotate toward each other along
+  // their rings (radius is fixed by score — that ordering is the analysis)
+  const K = 0.10 * tune.cluster;
+  const typeKeys = Object.keys(TYPE_COLORS);
+  const typeAngle = new Map(typeKeys.map((t, ti) => [t, (ti / typeKeys.length) * 2 * Math.PI]));
+  // saturating curve: full slider approaches "as grouped as spacing allows"
+  const KC = 0.05 * (1 - Math.exp(-2.2 * tune.colorG));
+  for (let it = 0; it < 160; it++) {
+    if (KC > 0) {
+      for (const c of sorted) {
+        const ta = typeAngle.get(c.concept_type);
+        if (ta === undefined) continue;
+        const a = ang.get(c.concept_id);
+        let d = ta - a;
+        while (d > Math.PI) d -= 2 * Math.PI;
+        while (d < -Math.PI) d += 2 * Math.PI;
+        ang.set(c.concept_id, a + KC * d);
+      }
+    }
+    for (const e of evis) {
+      const aa = ang.get(e.source), ab = ang.get(e.target);
+      if (aa === undefined || ab === undefined) continue;
+      let d = ab - aa;
+      while (d > Math.PI) d -= 2 * Math.PI;
+      while (d < -Math.PI) d += 2 * Math.PI;
+      const f = K * d * Math.min(1, e.weight / 3);
+      ang.set(e.source, aa + f);
+      ang.set(e.target, ab - f);
+    }
+    collide();
+  }
+  // spacing gets the last word: settle collisions with forces switched off,
+  // so even 100% grouping cannot fuse spheres together
+  for (let it = 0; it < 40; it++) collide();
+
+  // ring guides (radii re-projected by placeRadial when the dome flexes)
+  const ringEls = rings.map(ring => {
+    const rg = document.createElementNS(NS, "circle");
+    rg.setAttribute("cx", cx); rg.setAttribute("cy", cy);
+    rg.setAttribute("fill", "none"); rg.setAttribute("stroke", "#171728");
+    rg.setAttribute("stroke-width", "1");
+    g.appendChild(rg);
+    return { el: rg, radius: ring.radius };
+  });
+
+  const nodeMeta = new Map();
+  const edgeMeta = evis.map(e => {
+    const ln = drawEdge(g, e, wMax);
+    ln.dataset.strength = Math.min(1, e.weight / Math.max(2, wMax));
+    return { el: ln, a: e.source, b: e.target };
+  });
+  const nodes = [];
+  rings.forEach(ring => {
+    for (const c of ring.members) {
+      const el = drawNode(g, c, rScale(c));
+      const meta = { c, el, lab: null, baseR: rScale(c), radius: ring.radius, ang: ang.get(c.concept_id) };
+      nodes.push(meta);
+      nodeMeta.set(c.concept_id, meta);
+    }
+  });
+  // pre-create a deep label pool; semantic zoom decides how many show
+  const labelled = sorted.slice(0, Math.min(120, sorted.length));
+  labelled.forEach((c, li) => {
+    const lab = drawLabel(g, c, rScale(c));
+    const meta = nodeMeta.get(c.concept_id);
+    meta.lab = lab; meta.labRank = li;
+  });
+
+  radialState = { cx, cy, maxR, nodes, nodeMeta, edges: edgeMeta, rings: ringEls };
+  placeRadial();
+  semanticZoom();
+  statusLine(vis.length);
+}
+
+// ---- sectors layout: one wedge per concept type, sized by membership.
+// Within a wedge, arc rows fill outward with the strongest (biggest)
+// concepts at the inner edge dwindling to the nascent tail at the rim.
+// Reuses radialState so dome / rotation / spin / semantic zoom all apply.
+function renderSectors(g, vis, W, H) {
+  const cx = W / 2, cy = H / 2;
+  const rScale = sizeScale(vis);
+  const idset = new Set(vis.map(c => c.concept_id));
+  const evis = edges.filter(e => idset.has(e.source) && idset.has(e.target));
+  const wMax = evis.reduce((m, e) => Math.max(m, e.weight), 2);
+
+  // dynamic grouping: only types present in the visible set get a wedge
+  const byType = new Map();
+  for (const c of vis) {
+    if (!byType.has(c.concept_type)) byType.set(c.concept_type, []);
+    byType.get(c.concept_type).push(c);
+  }
+  const sectors = [...byType.entries()]
+    .map(([type, members]) => ({ type, members: members.sort((a, b) => (b.score || 0) - (a.score || 0)) }))
+    .sort((a, b) => b.members.length - a.members.length);
+
+  // span ∝ √count: big groups dominate the circle without erasing small ones
+  const GAP = 0.05;
+  const avail = 2 * Math.PI - GAP * sectors.length;
+  const wSum = sectors.reduce((s, sec) => s + Math.sqrt(sec.members.length), 0);
+  let a0 = -Math.PI / 2;
+  for (const sec of sectors) {
+    sec.span = avail * Math.sqrt(sec.members.length) / wSum;
+    sec.a0 = a0;
+    a0 += sec.span + GAP;
+  }
+
+  const nodeMeta = new Map();
+  const edgeMeta = evis.map(e => {
+    const ln = drawEdge(g, e, wMax);
+    ln.dataset.strength = Math.min(1, e.weight / Math.max(2, wMax));
+    return { el: ln, a: e.source, b: e.target };
+  });
+
+  const nodes = [];
+  let maxR = 0;
+  for (const sec of sectors) {
+    let radius = 80 * tune.spread;
+    let i = 0;
+    while (i < sec.members.length) {
+      const biggest = rScale(sec.members[i]);
+      const slotArc = Math.max(biggest * 2.3 + 5, 13);
+      const cap = Math.max(1, Math.floor((sec.span * radius) / slotArc));
+      const row = sec.members.slice(i, i + cap);
+      row.forEach((c, j) => {
+        const el = drawNode(g, c, rScale(c));
+        const meta = { c, el, lab: null, baseR: rScale(c), radius,
+          ang: sec.a0 + sec.span * ((j + 0.5) / row.length) };
+        nodes.push(meta);
+        nodeMeta.set(c.concept_id, meta);
+      });
+      i += cap;
+      radius += Math.max(biggest * 2.0, 20) * tune.spread;
+    }
+    sec.rOuter = radius;
+    maxR = Math.max(maxR, radius);
+  }
+
+  // wedge labels ride just outside their own outermost row
+  const sectorEls = sectors.map(sec => {
+    const lab = document.createElementNS(NS, "text");
+    lab.setAttribute("class", "ring-label");
+    lab.setAttribute("text-anchor", "middle");
+    lab.setAttribute("fill", TYPE_COLORS[sec.type] || "#565b70");
+    lab.textContent = `${(TYPE_LABELS[sec.type] || sec.type).toUpperCase()} · ${sec.members.length}`;
+    g.appendChild(lab);
+    return { el: lab, ang: sec.a0 + sec.span / 2, radius: sec.rOuter + 16 };
+  });
+
+  const sorted = [...vis].sort((a, b) => (b.score || 0) - (a.score || 0));
+  sorted.slice(0, Math.min(120, sorted.length)).forEach((c, li) => {
+    const meta = nodeMeta.get(c.concept_id);
+    if (!meta) return;
+    meta.lab = drawLabel(g, c, meta.baseR);
+    meta.labRank = li;
+  });
+
+  radialState = { cx, cy, maxR, nodes, nodeMeta, edges: edgeMeta, rings: [], sectors: sectorEls };
+  placeRadial();
+  semanticZoom();
+  statusLine(vis.length);
+}
+
+// re-project all radial elements: rotation offset + dome curvature.
+// Cheap enough to run per-frame for ambient spin.
+// k > 0: convex dome (crown near, rim falls away)
+// k < 0: concave bowl (center recedes, rim rises toward the viewer)
+function domeProject(radius, maxR, k) {
+  const rho = Math.min(1, radius / maxR);
+  const a = Math.min(1, Math.abs(k));
+  let rp, d;
+  if (k >= 0) {
+    rp = maxR * Math.sin(rho * Math.PI / 2);
+    d = Math.cos(rho * Math.PI / 2);
+  } else {
+    rp = maxR * (1 - Math.cos(rho * Math.PI / 2));
+    d = Math.sin(rho * Math.PI / 2);
+  }
+  return { r: (1 - a) * radius + a * rp, depth: 1 - a * (1 - d) };
+}
+function placeRadial() {
+  if (!radialState || !radialLike()) return;
+  const { cx, cy, maxR, nodes, nodeMeta, edges: eMeta, rings } = radialState;
+  const k = tune.dome, rot = tune.rot;
+  for (const rg of rings) {
+    rg.el.setAttribute("r", domeProject(rg.radius, maxR, k).r);
+  }
+  for (const m of nodes) {
+    const { r, depth } = domeProject(m.radius, maxR, k);
+    const a = m.ang + rot;
+    m.x = cx + r * Math.cos(a);
+    m.y = cy + r * Math.sin(a);
+    m.c._x = m.x; m.c._y = m.y;
+    const nr = m.baseR * (0.55 + 0.45 * depth);
+    m.drawR = nr;
+    m.el.setAttribute("cx", m.x); m.el.setAttribute("cy", m.y);
+    m.el.setAttribute("r", nr);
+    m.el.style.opacity = 0.32 + 0.68 * depth; // far side recedes hard
+    if (m.lab) {
+      m.lab.setAttribute("x", m.x + nr + 4);
+      m.lab.setAttribute("y", m.y + 3.5);
+    }
+  }
+  for (const em of eMeta) {
+    const pa = nodeMeta.get(em.a), pb = nodeMeta.get(em.b);
+    em.el.setAttribute("x1", pa.x); em.el.setAttribute("y1", pa.y);
+    em.el.setAttribute("x2", pb.x); em.el.setAttribute("y2", pb.y);
+  }
+  for (const s of radialState.sectors || []) {
+    const { r, depth } = domeProject(s.radius, maxR, k);
+    const a = s.ang + rot;
+    s.el.setAttribute("x", cx + r * Math.cos(a));
+    s.el.setAttribute("y", cy + r * Math.sin(a));
+    s.el.style.opacity = 0.32 + 0.68 * depth;
+  }
+}
+
+// semantic zoom: zooming in reveals weaker links and more labels
+function semanticZoom() {
+  if (!radialState) return;
+  const kz = viewTransform.k;
+  const thr = Math.max(0, 0.5 - 0.38 * kz);          // k=0.35 → .37, k=1 → .12, k≥1.3 → 0
+  for (const em of radialState.edges) {
+    em.el.style.display = (+em.el.dataset.strength >= thr) ? "" : "none";
+  }
+  const nLabels = Math.min(120, Math.round(18 * kz * kz));
+  for (const m of radialState.nodes) {
+    if (m.lab) m.lab.style.display = (m.labRank < nLabels) ? "" : "none";
+  }
+}
+
+// ambient spin (grabPause freezes it while the user is holding the dome)
+let spinRAF = null, lastSpinT = 0, grabPause = false;
+function spinTick(t) {
+  spinRAF = null;
+  if (tune.spin <= 0 || !radialLike() || !radialState) return;
+  const dt = lastSpinT ? Math.min(64, t - lastSpinT) : 16;
+  lastSpinT = t;
+  if (!grabPause) {
+    tune.rot = (tune.rot + tune.spin * 0.00022 * dt) % (2 * Math.PI);
+    const rotSlider = document.getElementById("s-rot");
+    rotSlider.value = ((tune.rot * 180 / Math.PI) % 360 + 360) % 360;
+    placeRadial();
+  }
+  spinRAF = requestAnimationFrame(spinTick);
+}
+function ensureSpin() {
+  if (tune.spin > 0 && !spinRAF && radialLike()) {
+    lastSpinT = 0;
+    spinRAF = requestAnimationFrame(spinTick);
+  }
+}
+
+// ---- force-directed link graph -----------------------------------------
+const nodePos = new Map(); // persists positions across re-renders
+
+function renderGraph(g, vis, W, H) {
+  const cx = W / 2, cy = H / 2;
+  const rScale = sizeScale(vis);
+  const idset = new Set(vis.map(c => c.concept_id));
+  const evis = edges.filter(e => idset.has(e.source) && idset.has(e.target));
+  const byId = new Map(vis.map(c => [c.concept_id, c]));
+
+  // degree → give connected nodes a head start near center
+  const degree = new Map();
+  for (const e of evis) {
+    degree.set(e.source, (degree.get(e.source) || 0) + 1);
+    degree.set(e.target, (degree.get(e.target) || 0) + 1);
+  }
+  for (const c of vis) {
+    if (!nodePos.has(c.concept_id)) {
+      const a = Math.random() * Math.PI * 2;
+      const rr = (degree.get(c.concept_id) ? 120 : 320) + Math.random() * 140;
+      nodePos.set(c.concept_id, { x: cx + rr * Math.cos(a), y: cy + rr * Math.sin(a), vx: 0, vy: 0 });
+    }
+  }
+
+  // edge lines under nodes
+  const wMax = evis.reduce((m, e) => Math.max(m, e.weight), 2);
+  const edgeEls = evis.map(e => drawEdge(g, e, wMax));
+  const nodeEls = new Map();
+  for (const c of vis) nodeEls.set(c.concept_id, drawNode(g, c, rScale(c)));
+  // label top-scored plus high-degree nodes
+  const labelled = [...vis].sort((a, b) =>
+    ((degree.get(b.concept_id) || 0) + (b.score || 0) * 10) -
+    ((degree.get(a.concept_id) || 0) + (a.score || 0) * 10)).slice(0, 22);
+  for (const c of labelled) drawLabel(g, c, rScale(c));
+
+  // simple velocity-Verlet force sim (no deps): springs + repulsion + centering
+  if (sim) cancelAnimationFrame(sim);
+  let alpha = 1;
+  const K_SPRING = 0.008 + 0.05 * tune.cluster, REST = 70 * tune.spread, K_REPEL = 500 + 1400 * tune.spread, K_CENTER = 0.012, DAMP = 0.82;
+  function tick() {
+    for (const [ida, pa] of nodePos) {
+      if (!byId.has(ida)) continue;
+      for (const [idb, pb] of nodePos) {
+        if (idb <= ida || !byId.has(idb)) continue;
+        let dx = pb.x - pa.x, dy = pb.y - pa.y;
+        let d2 = dx * dx + dy * dy || 1;
+        if (d2 < 40000) { // repulsion has finite range: keeps it O(n²) but cheap
+          const f = K_REPEL / d2;
+          const d = Math.sqrt(d2);
+          dx /= d; dy /= d;
+          pa.vx -= dx * f; pa.vy -= dy * f;
+          pb.vx += dx * f; pb.vy += dy * f;
+        }
+      }
+    }
+    for (const e of evis) {
+      const pa = nodePos.get(e.source), pb = nodePos.get(e.target);
+      if (!pa || !pb) continue;
+      const dx = pb.x - pa.x, dy = pb.y - pa.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const f = K_SPRING * (d - REST) * Math.min(1, e.weight / 3);
+      pa.vx += (dx / d) * f; pa.vy += (dy / d) * f;
+      pb.vx -= (dx / d) * f; pb.vy -= (dy / d) * f;
+    }
+    if (tune.colorG > 0) {
+      const cent = new Map();
+      for (const c of vis) {
+        const p = nodePos.get(c.concept_id);
+        const m = cent.get(c.concept_type) || { x: 0, y: 0, n: 0 };
+        m.x += p.x; m.y += p.y; m.n++;
+        cent.set(c.concept_type, m);
+      }
+      const KG = 0.02 * tune.colorG;
+      for (const c of vis) {
+        const m = cent.get(c.concept_type);
+        if (!m || m.n < 2) continue;
+        const p = nodePos.get(c.concept_id);
+        p.vx += (m.x / m.n - p.x) * KG;
+        p.vy += (m.y / m.n - p.y) * KG;
+      }
+    }
+    for (const c of vis) {
+      const p = nodePos.get(c.concept_id);
+      p.vx += (cx - p.x) * K_CENTER * (degree.get(c.concept_id) ? 1 : 0.4);
+      p.vy += (cy - p.y) * K_CENTER * (degree.get(c.concept_id) ? 1 : 0.4);
+      p.vx *= DAMP; p.vy *= DAMP;
+      p.x += p.vx * alpha; p.y += p.vy * alpha;
+    }
+    evis.forEach((e, i) => {
+      const pa = nodePos.get(e.source), pb = nodePos.get(e.target);
+      edgeEls[i].setAttribute("x1", pa.x); edgeEls[i].setAttribute("y1", pa.y);
+      edgeEls[i].setAttribute("x2", pb.x); edgeEls[i].setAttribute("y2", pb.y);
+    });
+    for (const c of vis) {
+      const p = nodePos.get(c.concept_id);
+      const el = nodeEls.get(c.concept_id);
+      el.setAttribute("cx", p.x); el.setAttribute("cy", p.y);
+      c._x = p.x; c._y = p.y;
+      if (c._lab) { c._lab.setAttribute("x", p.x + c._labR + 4); c._lab.setAttribute("y", p.y + 3.5); }
+    }
+    alpha *= 0.985;
+    if (alpha > 0.02) sim = requestAnimationFrame(tick);
+  }
+  sim = requestAnimationFrame(tick);
+  statusLine(vis.length);
+}
+
+function render() {
+  if (sim) { cancelAnimationFrame(sim); sim = null; }
+  radialState = null;
+  svg.innerHTML = "";
+  const W = svg.clientWidth, H = svg.clientHeight;
+  const g = document.createElementNS(NS, "g");
+  g.setAttribute("transform",
+    `translate(${viewTransform.x},${viewTransform.y}) scale(${viewTransform.k})`);
+  svg.appendChild(g);
+  buildDefs(g);
+  const vis = visSet();
+  for (const c of vis) c._lab = null;
+  if (layoutMode === "radial") renderRadial(g, vis, W, H);
+  else if (layoutMode === "sectors") renderSectors(g, vis, W, H);
+  else if (layoutMode === "graph") renderGraph(g, vis, W, H);
+  else renderOrbit(g, vis, W, H);
+}
+
+function showTip(e, c) {
+  tooltip.style.display = "block";
+  tooltip.style.left = Math.min(e.clientX + 14, innerWidth - 310) + "px";
+  tooltip.style.top = (e.clientY + 12) + "px";
+  tooltip.innerHTML = `<div class="t">${esc(c.title)}</div>
+    <div class="d">${TYPE_LABELS[c.concept_type] || c.concept_type} · score ${(c.score || 0).toFixed(3)}
+    · ${c.evidence_count} evidence · grade ${c.confidence_grade || "?"}<br>
+    last seen ${c.last_seen ? c.last_seen.slice(0, 10) : "?"}</div>`;
+}
+function hideTip() { tooltip.style.display = "none"; }
+function esc(s) { const d = document.createElement("i"); d.textContent = s || ""; return d.innerHTML; }
+
+async function openDrawer(id) {
+  const body = document.getElementById("drawer-body");
+  body.innerHTML = "<p style='color:var(--faint)'>loading…</p>";
+  document.getElementById("drawer").classList.add("open");
+  const [card, evidence] = await Promise.all([
+    fetch(`/api/concepts/${id}`).then(r => r.json()),
+    fetch(`/api/concepts/${id}/evidence?limit=25`).then(r => r.json()),
+  ]);
+  const comps = card.score_components || {};
+  const aliases = (card.aliases || []).map(a => typeof a === "string" ? a : a.alias);
+  body.innerHTML = `
+    <h2>${esc(card.title)}</h2>
+    <div class="meta">
+      <span class="badge type" style="background:${TYPE_COLORS[card.concept_type] || '#555'}">${TYPE_LABELS[card.concept_type] || card.concept_type}</span>
+      <span class="badge">grade ${card.confidence_grade || "?"}</span>
+      <span class="badge">score ${(card.score || 0).toFixed(3)}</span>
+      <span class="badge">${card.evidence_count} evidence</span>
+      ${card.nascent ? '<span class="badge" style="color:var(--accent)">nascent</span>' : ""}
+    </div>
+    <div class="summary">${esc(card.summary)}</div>
+    <div class="actions">
+      <button id="pin-btn" class="${card.pinned ? "pinned" : ""}">${card.pinned ? "★ pinned" : "☆ pin"}</button>
+    </div>
+    ${aliases.length ? `<h3>ALIASES</h3><div>${aliases.map(a => `<span class="alias">${esc(a)}</span>`).join("")}</div>` : ""}
+    <h3>SCORE COMPONENTS</h3>
+    ${Object.entries(comps).map(([k, v]) => `
+      <div class="score-row"><span>${esc(k)}</span>
+        <span class="score-bar"><i style="width:${Math.round((+v || 0) * 100)}%"></i></span>
+        <span>${(+v || 0).toFixed(2)}</span></div>`).join("") || "<p style='color:var(--faint);font-size:12px'>none recorded</p>"}
+    <h3>TIMELINE</h3>
+    <div style="font-size:12px;color:var(--dim)">first seen ${card.first_seen ? card.first_seen.slice(0, 10) : "?"} ·
+      last seen ${card.last_seen ? card.last_seen.slice(0, 10) : "?"}</div>
+    <h3>EVIDENCE — DRILLS TO SOURCE</h3>
+    <div id="ev-list">${evidence.map((ev, i) => {
+      let prov = {};
+      try { prov = JSON.parse(ev.provenance_json); } catch (e) {}
+      return `<div class="ev" id="ev-${i}">
+        <div class="src">
+          <span>${esc(prov.source_system || ev.source_system || "?")}</span>
+          <span>${(ev.ts || "").slice(0, 16).replace("T", " ")}</span>
+          <span>${esc(prov.granularity || "")}</span>
+        </div>
+        <div class="txt">${esc(ev.text)}</div>
+        <span class="more" onclick="document.getElementById('ev-${i}').classList.toggle('expanded')">expand</span>
+        <div class="src" style="margin-top:5px">msg ${esc((prov.message_id || "").slice(0, 8))} · session ${esc((prov.session_id || "").slice(0, 8))}</div>
+      </div>`;
+    }).join("")}</div>
+    <div class="actions"><button id="verify-btn">verify evidence against live sources</button></div>
+    <div id="verify-out"></div>`;
+
+  document.getElementById("pin-btn").onclick = async () => {
+    const want = !card.pinned;
+    await fetch(`/api/actions/pin/${id}?pinned=${want}`, { method: "POST" });
+    await load(); openDrawer(id);
+  };
+  document.getElementById("verify-btn").onclick = async () => {
+    const out = document.getElementById("verify-out");
+    out.innerHTML = "<p style='color:var(--faint);font-size:12px;margin-top:8px'>verifying…</p>";
+    const results = await fetch(`/api/evidence/${id}/verify?limit=25`).then(r => r.json());
+    const ok = results.filter(r => r.verification && r.verification.ok).length;
+    out.innerHTML = `<p style="font-size:12px;margin-top:8px">
+      <span class="vbadge ${ok === results.length ? "ok" : "bad"}">${ok}/${results.length} verified against source</span></p>`;
+    results.forEach((r, i) => {
+      const el = document.getElementById(`ev-${i}`);
+      if (!el || !r.verification) return;
+      const b = document.createElement("span");
+      b.className = "vbadge " + (r.verification.ok ? "ok" : "bad");
+      b.textContent = r.verification.ok ? "verified ✓" : "MISMATCH";
+      el.querySelector(".src").appendChild(b);
+    });
+  };
+}
+function closeDrawer() { document.getElementById("drawer").classList.remove("open"); }
+
+function resetView() {
+  viewTransform = { x: 0, y: 0, k: 1 };
+  render();
+}
+
+function toggleMobilePanel(id) {
+  for (const panelId of ["legend", "controls"]) {
+    document.getElementById(panelId).classList.toggle("mobile-open", panelId === id && !document.getElementById(id).classList.contains("mobile-open"));
+  }
+}
+
+function buildTypeLegend() {
+  const el = document.getElementById("type-legend");
+  el.innerHTML = Object.entries(TYPE_COLORS).map(([k, col]) => `
+    <div class="row type-toggle" data-type="${k}">
+      <span class="swatch" style="background:${col}"></span>${TYPE_LABELS[k]}</div>`).join("");
+  el.querySelectorAll(".type-toggle").forEach(t => t.addEventListener("click", () => {
+    const ty = t.dataset.type;
+    if (typeOff.has(ty)) typeOff.delete(ty); else typeOff.add(ty);
+    t.classList.toggle("off");
+    render();
+  }));
+}
+
+async function load() {
+  [concepts, edges] = await Promise.all([
+    fetch("/api/concepts?view=all&limit=3000").then(r => r.json()),
+    fetch("/api/graph?limit=3000&min_shared=2&max_edges=2500").then(r => r.json()).catch(() => []),
+  ]);
+  computePercentiles();
+  render();
+}
+
+const MODES = ["radial", "sectors", "graph", "orbit"];
+// deep-linkable layout: /static/orbit.html?layout=sectors
+const qsLayout = new URLSearchParams(location.search).get("layout");
+if (MODES.includes(qsLayout)) layoutMode = qsLayout;
+document.getElementById("layout-toggle").addEventListener("click", e => {
+  layoutMode = MODES[(MODES.indexOf(layoutMode) + 1) % MODES.length];
+  e.target.textContent = layoutMode;
+  render();
+  ensureSpin();
+});
+document.getElementById("layout-toggle").textContent = layoutMode;
+
+// tuning sliders re-render live
+const SLIDERS = [["s-cluster","cluster",100],["s-color","colorG",100],["s-links","links",100],["s-size","size",100],["s-norm","norm",100],["s-spread","spread",100]];
+for (const [id, key, div] of SLIDERS) {
+  document.getElementById(id).addEventListener("input", e => {
+    tune[key] = +e.target.value / div;
+    render();
+  });
+}
+
+document.getElementById("s-dome").addEventListener("input", e => {
+  tune.dome = +e.target.value / 100;
+  if (radialLike() && radialState) placeRadial(); else render();
+});
+document.getElementById("s-rot").addEventListener("input", e => {
+  tune.rot = +e.target.value * Math.PI / 180;
+  if (radialLike() && radialState) placeRadial();
+});
+document.getElementById("s-spin").addEventListener("input", e => {
+  tune.spin = +e.target.value / 100;
+  ensureSpin();
+});
+
+// exponential sliders: fine granularity at the low end, huge reach at the top
+function daysFromSlider(v) {          // 1..99 → 1..180 days, 100 → all time
+  if (+v >= 100) return 9999;
+  return Math.max(1, Math.round(Math.pow(180, v / 99)));
+}
+function topFromSlider(v) {           // 0..99 → 10..~3000, 100 → all
+  if (+v >= 100) return 99999;
+  return Math.round(10 * Math.pow(300, v / 100));
+}
+document.getElementById("s-days").addEventListener("input", e => {
+  windowDays = daysFromSlider(e.target.value);
+  document.getElementById("v-days").textContent =
+    windowDays >= 9999 ? "all time" : windowDays + "d";
+  render();
+});
+document.getElementById("s-top").addEventListener("input", e => {
+  topN = topFromSlider(e.target.value);
+  document.getElementById("v-top").textContent = topN >= 99999 ? "all" : topN;
+  render();
+});
+document.getElementById("v-top").textContent = topN = topFromSlider(document.getElementById("s-top").value);
+
+document.getElementById("search").addEventListener("input", e => {
+  searchTerm = e.target.value.trim().toLowerCase(); render();
+});
+
+
+// Unified pointer pan + pinch zoom + grab-rotate for mouse, pen, and touch.
+// Grabbing inside the dome pauses the spin and rotates it by hand;
+// grabbing the background outside the dome pans the canvas.
+let dragging = null, suppressClick = false;
+const pointers = new Map();
+function domeScreenCenter() {
+  return {
+    x: radialState.cx * viewTransform.k + viewTransform.x,
+    y: radialState.cy * viewTransform.k + viewTransform.y,
+  };
+}
+function beginPointer(e) {
+  suppressClick = false;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  svg.setPointerCapture?.(e.pointerId);
+  if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    dragging = {
+      mode: "pinch",
+      distance: Math.hypot(b.x - a.x, b.y - a.y),
+      angle: Math.atan2(b.y - a.y, b.x - a.x),
+      centerX: (a.x + b.x) / 2,
+      centerY: (a.y + b.y) / 2,
+    };
+    grabPause = true;
+    return;
+  }
+  if (radialLike() && radialState) {
+    const c = domeScreenCenter();
+    const dx = e.clientX - c.x, dy = e.clientY - c.y;
+    if (Math.hypot(dx, dy) <= radialState.maxR * viewTransform.k * 1.04) {
+      grabPause = true; // holding the dome always pauses the spin
+      // rotate only with shift-drag or right-button drag; plain drag pans
+      if (e.shiftKey || e.button === 2) {
+        dragging = { mode: "rotate", angle: Math.atan2(dy, dx) };
+        return;
+      }
+    }
+  }
+  dragging = { mode: "pan", x: e.clientX, y: e.clientY };
+}
+svg.addEventListener("pointerdown", beginPointer);
+svg.addEventListener("contextmenu", e => e.preventDefault()); // right-drag = rotate
+window.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (dragging.mode === "pinch" && pointers.size >= 2) {
+    e.preventDefault();
+    const [a, b] = [...pointers.values()];
+    const distance = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
+    const centerX = (a.x + b.x) / 2, centerY = (a.y + b.y) / 2;
+    const kNew = Math.max(0.35, Math.min(4, viewTransform.k * distance / Math.max(1, dragging.distance)));
+    const scale = kNew / viewTransform.k;
+    viewTransform.x = centerX - (dragging.centerX - viewTransform.x) * scale;
+    viewTransform.y = centerY - (dragging.centerY - viewTransform.y) * scale;
+    viewTransform.x += centerX - dragging.centerX;
+    viewTransform.y += centerY - dragging.centerY;
+    viewTransform.k = kNew;
+    if (radialLike()) {
+      let da = Math.atan2(b.y - a.y, b.x - a.x) - dragging.angle;
+      while (da > Math.PI) da -= 2 * Math.PI;
+      while (da < -Math.PI) da += 2 * Math.PI;
+      tune.rot = (tune.rot + da) % (2 * Math.PI);
+      document.getElementById("s-rot").value = ((tune.rot * 180 / Math.PI) % 360 + 360) % 360;
+      placeRadial();
+    }
+    dragging = { mode: "pinch", distance, angle: Math.atan2(b.y - a.y, b.x - a.x), centerX, centerY };
+    const g = svg.firstChild;
+    if (g) g.setAttribute("transform", `translate(${viewTransform.x},${viewTransform.y}) scale(${viewTransform.k})`);
+    semanticZoom();
+    suppressClick = true;
+    return;
+  }
+  if (dragging.mode === "rotate") {
+    const c = domeScreenCenter();
+    const a = Math.atan2(e.clientY - c.y, e.clientX - c.x);
+    let d = a - dragging.angle;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    tune.rot = (tune.rot + d) % (2 * Math.PI);
+    if (Math.abs(d) > 0.003) suppressClick = true; // real drag, not a click
+    dragging.angle = a;
+    document.getElementById("s-rot").value = ((tune.rot * 180 / Math.PI) % 360 + 360) % 360;
+    placeRadial();
+    return;
+  }
+  viewTransform.x += e.clientX - dragging.x;
+  viewTransform.y += e.clientY - dragging.y;
+  dragging = { x: e.clientX, y: e.clientY, mode: "pan" };
+  const g = svg.firstChild;
+  if (g) g.setAttribute("transform",
+    `translate(${viewTransform.x},${viewTransform.y}) scale(${viewTransform.k})`);
+});
+function endPointer(e) {
+  pointers.delete(e.pointerId);
+  if (pointers.size === 1) {
+    const p = [...pointers.values()][0];
+    dragging = { mode: "pan", x: p.x, y: p.y };
+  } else if (pointers.size === 0) dragging = null;
+  if (grabPause) { grabPause = false; lastSpinT = 0; ensureSpin(); }
+}
+window.addEventListener("pointerup", endPointer);
+window.addEventListener("pointercancel", endPointer);
+svg.addEventListener("wheel", e => {
+  e.preventDefault();
+  const f = e.deltaY < 0 ? 1.12 : 0.89;
+  const kNew = Math.max(0.35, Math.min(4, viewTransform.k * f));
+  const scale = kNew / viewTransform.k;
+  // zoom toward the cursor: keep the point under it fixed
+  viewTransform.x = e.clientX - (e.clientX - viewTransform.x) * scale;
+  viewTransform.y = e.clientY - (e.clientY - viewTransform.y) * scale;
+  viewTransform.k = kNew;
+  const g = svg.firstChild;
+  if (g) g.setAttribute("transform",
+    `translate(${viewTransform.x},${viewTransform.y}) scale(${viewTransform.k})`);
+  semanticZoom();
+}, { passive: false });
+window.addEventListener("resize", render);
+window.addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(); });
+
+// ---- movable menus: drag any panel by its empty space; positions persist
+(function makeHudsMovable() {
+  const INTERACTIVE = "input, button, a, select, textarea, .type-toggle";
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem("loom-hud-pos") || "{}"); } catch (e) {}
+  document.querySelectorAll(".hud").forEach(panel => {
+    if (!panel.id) return;
+    if (saved[panel.id]) {
+      const p = saved[panel.id];
+      panel.style.left = p.left + "px";
+      panel.style.top = p.top + "px";
+      panel.style.right = "auto";
+      panel.style.bottom = "auto";
+      panel.style.transform = "none";
+    }
+    panel.addEventListener("pointerdown", e => {
+      if (e.target.closest(INTERACTIVE)) return;
+      e.preventDefault();
+      e.stopPropagation(); // don't start a canvas pan underneath
+      const rect = panel.getBoundingClientRect();
+      const offX = e.clientX - rect.left, offY = e.clientY - rect.top;
+      // switch to explicit left/top so right/bottom/centered panels move freely
+      panel.style.left = rect.left + "px";
+      panel.style.top = rect.top + "px";
+      panel.style.right = "auto";
+      panel.style.bottom = "auto";
+      panel.style.transform = "none";
+      panel.style.cursor = "grabbing";
+      function onMove(ev) {
+        if (ev.pointerId !== e.pointerId) return;
+        panel.style.left = Math.max(0, Math.min(innerWidth - 40, ev.clientX - offX)) + "px";
+        panel.style.top = Math.max(0, Math.min(innerHeight - 30, ev.clientY - offY)) + "px";
+      }
+      function onUp(ev) {
+        if (ev.pointerId !== e.pointerId) return;
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        panel.style.cursor = "";
+        saved[panel.id] = { left: parseFloat(panel.style.left), top: parseFloat(panel.style.top) };
+        try { localStorage.setItem("loom-hud-pos", JSON.stringify(saved)); } catch (e) {}
+      }
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    });
+  });
+})();
+
+buildTypeLegend();
+document.getElementById("mobile-fit").addEventListener("click", resetView);
+document.getElementById("mobile-tune").addEventListener("click", () => toggleMobilePanel("controls"));
+document.getElementById("mobile-info").addEventListener("click", () => toggleMobilePanel("legend"));
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/static/sw.js").catch(() => {}));
+}
+load();
+</script>
+</body>
+</html>
