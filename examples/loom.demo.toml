@@ -1,0 +1,39 @@
+# Demo config for the bundled examples/sample-notes corpus.
+# Copy to the repo root as loom.toml, or run: loom --config examples/loom.demo.toml ...
+# (paths below are relative to this file's directory when used in place).
+
+[paths]
+data_dir = "../data"
+db_path = "../data/demo.db"
+
+[[sources]]
+name = "sample-notes"
+type = "markdown_folder"
+root = "sample-notes"
+include = ["**/*.md"]
+max_chunk_chars = 300
+min_text_chars = 40
+
+[embedding]
+model = "BAAI/bge-m3"
+batch_size = 8
+device = "auto"
+max_seq_length = 512
+
+[clustering]
+# Loosened for the tiny demo corpus; the defaults in loom.example.toml are
+# tuned for thousands of evidence rows.
+min_cluster_size = 3
+min_samples = 1
+reduced_dimensions = 10
+
+[llm]
+provider = "anthropic"
+model = "claude-opus-4-8"
+max_tokens = 1024
+timeout = 120
+max_llm_calls_per_run = 25
+
+[server]
+host = "127.0.0.1"
+port = 8901
