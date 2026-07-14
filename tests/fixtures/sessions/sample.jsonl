@@ -1,0 +1,4 @@
+{"type":"session","version":3,"id":"session-1","timestamp":"2026-07-07T12:00:00Z","cwd":"/tmp"}
+{"type":"message","id":"msg-1","parentId":null,"timestamp":"2026-07-07T12:00:01Z","message":{"role":"user","content":"Concept Loom should preserve provenance.","sourceChannel":"chat"}}
+{"type":"message","id":"msg-2","parentId":"msg-1","timestamp":"2026-07-07T12:00:02Z","message":{"role":"assistant","content":[{"type":"text","text":"Every concept needs evidence."}],"sourceChannel":"chat"}}
+{"type":"message","id":"msg-3","parentId":"msg-2","timestamp":"2026-07-07T12:00:03Z","message":{"role":"system","content":"Read HEARTBEAT.md","sourceChannel":"scheduler"}}
