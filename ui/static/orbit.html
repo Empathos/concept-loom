@@ -50,11 +50,18 @@
   #search:focus { border-color: var(--accent); }
 
   #legend { top: 16px; right: 16px; width: 250px; font-size: 12px; color: var(--dim); }
-  #legend h2 { font-size: 11px; letter-spacing: .14em; color: var(--faint); margin-bottom: 8px; }
+  #legend h2 { font-size: 11px; letter-spacing: .14em; color: var(--faint); margin-bottom: 4px; }
+  #legend .sub { font-size: 11px; color: var(--faint); margin-bottom: 9px; line-height: 1.4; }
   #legend .row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
   #legend .swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; }
   #legend .enc { margin-bottom: 10px; }
+  #legend .enc .row { display: grid; grid-template-columns: 40px 1fr; gap: 8px;
+    align-items: start; margin: 5px 0; line-height: 1.4; }
   #legend .enc b { color: var(--text); font-weight: 600; }
+  #legend .enc i { color: var(--accent); font-style: normal; }
+  /* docked panels read as one glass block with a shared divider */
+  .hud.dock-bottom { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  .hud.dock-top { border-top-left-radius: 0; border-top-right-radius: 0; border-top: none; }
   .type-toggle { cursor: pointer; user-select: none; }
   .type-toggle.off { opacity: .28; }
 
@@ -116,6 +123,17 @@
   #tooltip .d { color: var(--faint); font-size: 11px; margin-top: 2px; }
 
   .slider-row { display: grid; grid-template-columns: 92px 1fr; gap: 8px; align-items: center; margin: 7px 0; }
+  #state-name { min-width: 0; flex: 1; background: #0c0c16; border: 1px solid var(--panel-edge);
+    color: var(--text); border-radius: 6px; padding: 3px 8px; font-size: 12px; outline: none; }
+  #state-name:focus { border-color: var(--accent); }
+  #state-list { margin-top: 6px; max-height: 140px; overflow-y: auto; }
+  .state-row { display: flex; align-items: center; gap: 6px; font-size: 11.5px; margin: 3px 0; }
+  .state-row .recall { color: var(--text); cursor: pointer; flex: 1; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  .state-row .recall:hover { color: var(--accent); }
+  .state-row .ts { color: var(--faint); font-size: 10.5px; white-space: nowrap; }
+  .state-row .del { color: var(--faint); cursor: pointer; padding: 0 3px; }
+  .state-row .del:hover { color: #e08b8b; }
   .slider-row label { font-size: 11.5px; color: var(--dim); }
   input[type=range] { -webkit-appearance: none; height: 4px; background: #23233a; border-radius: 2px; outline: none; }
   input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px;
@@ -167,13 +185,14 @@
 </div>
 
 <div class="hud" id="legend">
-  <h2>ENCODINGS — INSPECTABLE, NOT DECORATIVE</h2>
+  <h2>ENCODINGS</h2>
+  <div class="sub">every sphere is a recurring concept from shared memory — nothing here is decorative</div>
   <div class="enc">
-    <div class="row"><b>links</b>&nbsp;= concepts sharing evidence sessions (brighter + thicker = stronger)</div>
-    <div class="row"><b>position</b>&nbsp;= radial: concentrated core → nascent rim, linked concepts rotate together · sectors: one wedge per type, strongest at the inner edge · graph: relational clusters · orbit: attention bands</div>
-    <div class="row"><b>size</b>&nbsp;= composite score (frequency, diversity, momentum…)</div>
-    <div class="row"><b>brightness</b>&nbsp;= recency of last evidence</div>
-    <div class="row"><b>color</b>&nbsp;= concept type (click to toggle):</div>
+    <div class="row"><b>size</b><span>importance — composite score</span></div>
+    <div class="row"><b>glow</b><span>how recently it was active</span></div>
+    <div class="row"><b>links</b><span>shared evidence · brighter + thicker = stronger tie</span></div>
+    <div class="row"><b>place</b><span>radial: strong core → nascent rim · sectors: a wedge per type · graph: link clusters · orbit: attention bands</span></div>
+    <div class="row"><b>color</b><span>concept type — <i>click a dot below to show / hide it</i></span></div>
   </div>
   <div id="type-legend"></div>
 </div>
@@ -198,6 +217,14 @@
     <input type="range" id="s-rot" min="0" max="360" value="0"></div>
   <div class="slider-row"><label>Spin</label>
     <input type="range" id="s-spin" min="0" max="100" value="0"></div>
+  <div class="slider-row"><label>Parked</label>
+    <button id="snap-back" style="background:transparent;border:1px solid var(--panel-edge);color:var(--dim);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">none parked</button></div>
+  <div class="slider-row"><label>Save state</label>
+    <div style="display:flex;gap:6px;min-width:0">
+      <input id="state-name" type="text" placeholder="name…" size="1" autocomplete="off">
+      <button id="state-save" style="flex:none;background:transparent;border:1px solid var(--panel-edge);color:var(--dim);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">save</button>
+    </div></div>
+  <div id="state-list"></div>
 </div>
 
 <div class="hud" id="timebar">
@@ -260,6 +287,7 @@ let layoutMode = "radial";          // "radial" (score rings + links) | "sectors
 // radial and sectors share the same projection machinery (placeRadial, dome, spin)
 function radialLike() { return layoutMode === "radial" || layoutMode === "sectors"; }
 let viewTransform = { x: 0, y: 0, k: 1 };
+const dragOffset = new Map();        // concept_id → {dx,dy}: spheres parked by hand (world units)
 let sim = null;                      // running force simulation handle
 const tune = { cluster: 0.55, colorG: 0.0, links: 0.55, size: 1.0, norm: 0.5, spread: 1.0, dome: 0.45, rot: 0, spin: 0 };
 
@@ -367,7 +395,10 @@ function drawNode(g, c, r) {
   dot.setAttribute("stroke", "rgba(255,255,255,.22)");
   dot.setAttribute("stroke-width", "0.8");
   if (c.pinned) { dot.setAttribute("stroke", "#e8a33d"); dot.setAttribute("stroke-width", "2"); }
-  dot.addEventListener("click", () => { if (!suppressClick) openDrawer(c.concept_id); });
+  if (dragOffset.has(c.concept_id)) dot.setAttribute("stroke-dasharray", "3 3");
+  // no click listener: svg pointer capture retargets native clicks to the
+  // svg element, so endPointer() synthesizes clicks from press/release instead
+  dot.dataset.cid = c.concept_id;
   dot.addEventListener("mousemove", e => showTip(e, c));
   dot.addEventListener("mouseleave", hideTip);
   g.appendChild(dot);
@@ -549,6 +580,9 @@ function renderRadial(g, vis, W, H) {
     const meta = nodeMeta.get(c.concept_id);
     meta.lab = lab; meta.labRank = li;
   });
+  for (const m of nodes) { // parked spheres always carry their title
+    if (!m.lab && dragOffset.has(m.c.concept_id)) { m.lab = drawLabel(g, m.c, m.baseR); m.labRank = -1; }
+  }
 
   radialState = { cx, cy, maxR, nodes, nodeMeta, edges: edgeMeta, rings: ringEls };
   placeRadial();
@@ -600,18 +634,21 @@ function renderSectors(g, vis, W, H) {
   for (const sec of sectors) {
     let radius = 80 * tune.spread;
     let i = 0;
+    sec.rows = [];
     while (i < sec.members.length) {
       const biggest = rScale(sec.members[i]);
       const slotArc = Math.max(biggest * 2.3 + 5, 13);
       const cap = Math.max(1, Math.floor((sec.span * radius) / slotArc));
       const row = sec.members.slice(i, i + cap);
-      row.forEach((c, j) => {
+      const rowMetas = row.map((c, j) => {
         const el = drawNode(g, c, rScale(c));
         const meta = { c, el, lab: null, baseR: rScale(c), radius,
           ang: sec.a0 + sec.span * ((j + 0.5) / row.length) };
         nodes.push(meta);
         nodeMeta.set(c.concept_id, meta);
+        return meta;
       });
+      sec.rows.push(rowMetas);
       i += cap;
       radius += Math.max(biggest * 2.0, 20) * tune.spread;
     }
@@ -619,15 +656,48 @@ function renderSectors(g, vis, W, H) {
     maxR = Math.max(maxR, radius);
   }
 
+  // Clustering slider: angular relaxation pulls linked concepts toward each
+  // other, constrained to their own wedge and row (radius stays score-ranked,
+  // grouping stays absolute — kin just slide together along their arcs)
+  if (tune.cluster > 0) {
+    const K = 0.09 * tune.cluster;
+    for (let it = 0; it < 60; it++) {
+      for (const e of evis) {
+        const ma = nodeMeta.get(e.source), mb = nodeMeta.get(e.target);
+        if (!ma || !mb) continue;
+        let d = mb.ang - ma.ang;
+        while (d > Math.PI) d -= 2 * Math.PI;
+        while (d < -Math.PI) d += 2 * Math.PI;
+        const f = K * d * Math.min(1, e.weight / 3);
+        ma.ang += f; mb.ang -= f;
+      }
+      // spacing gets the last word: even separation, clamped inside the wedge
+      for (const sec of sectors) for (const row of sec.rows) {
+        const ms = [...row].sort((x, y) => x.ang - y.ang);
+        const minSep = sec.span / Math.max(ms.length, 1);
+        for (let j = 0; j + 1 < ms.length; j++) {
+          const d = ms[j + 1].ang - ms[j].ang;
+          if (d < minSep) { const push = (minSep - d) / 2; ms[j].ang -= push; ms[j + 1].ang += push; }
+        }
+        let lo = sec.a0 + minSep / 2;
+        for (const m of ms) { if (m.ang < lo) m.ang = lo; lo = m.ang + minSep; }
+        let hi = sec.a0 + sec.span - minSep / 2;
+        for (let j = ms.length - 1; j >= 0; j--) { if (ms[j].ang > hi) ms[j].ang = hi; hi = ms[j].ang - minSep; }
+      }
+    }
+  }
+
   // wedge labels ride just outside their own outermost row
   const sectorEls = sectors.map(sec => {
     const lab = document.createElementNS(NS, "text");
     lab.setAttribute("class", "ring-label");
     lab.setAttribute("text-anchor", "middle");
-    lab.setAttribute("fill", TYPE_COLORS[sec.type] || "#565b70");
+    // inline style: the .ring-label CSS fill would override a fill attribute
+    lab.style.fill = shade(TYPE_COLORS[sec.type] || "#8a8fa3", 0.55);
+    lab.style.fontWeight = "600";
     lab.textContent = `${(TYPE_LABELS[sec.type] || sec.type).toUpperCase()} · ${sec.members.length}`;
     g.appendChild(lab);
-    return { el: lab, ang: sec.a0 + sec.span / 2, radius: sec.rOuter + 16 };
+    return { el: lab, ang: sec.a0 + sec.span / 2, radius: sec.rOuter };
   });
 
   const sorted = [...vis].sort((a, b) => (b.score || 0) - (a.score || 0));
@@ -637,6 +707,9 @@ function renderSectors(g, vis, W, H) {
     meta.lab = drawLabel(g, c, meta.baseR);
     meta.labRank = li;
   });
+  for (const m of nodes) { // parked spheres always carry their title
+    if (!m.lab && dragOffset.has(m.c.concept_id)) { m.lab = drawLabel(g, m.c, m.baseR); m.labRank = -1; }
+  }
 
   radialState = { cx, cy, maxR, nodes, nodeMeta, edges: edgeMeta, rings: [], sectors: sectorEls };
   placeRadial();
@@ -673,6 +746,8 @@ function placeRadial() {
     const a = m.ang + rot;
     m.x = cx + r * Math.cos(a);
     m.y = cy + r * Math.sin(a);
+    const off = dragOffset.get(m.c.concept_id);
+    if (off) { m.x += off.dx; m.y += off.dy; }
     m.c._x = m.x; m.c._y = m.y;
     const nr = m.baseR * (0.55 + 0.45 * depth);
     m.drawR = nr;
@@ -692,9 +767,11 @@ function placeRadial() {
   for (const s of radialState.sectors || []) {
     const { r, depth } = domeProject(s.radius, maxR, k);
     const a = s.ang + rot;
-    s.el.setAttribute("x", cx + r * Math.cos(a));
-    s.el.setAttribute("y", cy + r * Math.sin(a));
-    s.el.style.opacity = 0.32 + 0.68 * depth;
+    // pad added after projection: dome compression at the rim can't eat the gap
+    const rr = r + 30;
+    s.el.setAttribute("x", cx + rr * Math.cos(a));
+    s.el.setAttribute("y", cy + rr * Math.sin(a));
+    s.el.style.opacity = 0.55 + 0.45 * depth; // labels stay readable on the far side
   }
 }
 
@@ -704,31 +781,43 @@ function semanticZoom() {
   const kz = viewTransform.k;
   const thr = Math.max(0, 0.5 - 0.38 * kz);          // k=0.35 → .37, k=1 → .12, k≥1.3 → 0
   for (const em of radialState.edges) {
-    em.el.style.display = (+em.el.dataset.strength >= thr) ? "" : "none";
+    // a parked sphere always shows its full relationship fan
+    const show = +em.el.dataset.strength >= thr || dragOffset.has(em.a) || dragOffset.has(em.b);
+    em.el.style.display = show ? "" : "none";
   }
   const nLabels = Math.min(120, Math.round(18 * kz * kz));
   for (const m of radialState.nodes) {
-    if (m.lab) m.lab.style.display = (m.labRank < nLabels) ? "" : "none";
+    if (m.lab) m.lab.style.display =
+      (dragOffset.has(m.c.concept_id) || m.labRank < nLabels) ? "" : "none";
   }
 }
 
 // ambient spin (grabPause freezes it while the user is holding the dome)
+// plus flick momentum: a rotate-drag's release velocity coasts on, capped at
+// the Spin slider's own rate, then relaxes onto the ambient spin.
 let spinRAF = null, lastSpinT = 0, grabPause = false;
+let rotVel = 0;                       // current inertial velocity (rad/ms)
+let dragVel = 0, lastDragT = 0;       // velocity tracker while rotate-dragging
+const SPIN_RATE = 0.00022;            // rad/ms at spin slider = 100%
 function spinTick(t) {
   spinRAF = null;
-  if (tune.spin <= 0 || !radialLike() || !radialState) return;
+  if (!radialLike() || !radialState) return;
   const dt = lastSpinT ? Math.min(64, t - lastSpinT) : 16;
   lastSpinT = t;
+  const ambient = tune.spin * SPIN_RATE;
   if (!grabPause) {
-    tune.rot = (tune.rot + tune.spin * 0.00022 * dt) % (2 * Math.PI);
-    const rotSlider = document.getElementById("s-rot");
-    rotSlider.value = ((tune.rot * 180 / Math.PI) % 360 + 360) % 360;
-    placeRadial();
+    rotVel = ambient + (rotVel - ambient) * Math.exp(-dt / 700);
+    if (Math.abs(rotVel - ambient) < ambient * 0.02 + 0.0000045) rotVel = ambient;
+    if (rotVel) {
+      tune.rot = (tune.rot + rotVel * dt) % (2 * Math.PI);
+      document.getElementById("s-rot").value = ((tune.rot * 180 / Math.PI) % 360 + 360) % 360;
+      placeRadial();
+    }
   }
-  spinRAF = requestAnimationFrame(spinTick);
+  if (tune.spin > 0 || rotVel !== ambient) spinRAF = requestAnimationFrame(spinTick);
 }
 function ensureSpin() {
-  if (tune.spin > 0 && !spinRAF && radialLike()) {
+  if ((tune.spin > 0 || rotVel) && !spinRAF && radialLike()) {
     lastSpinT = 0;
     spinRAF = requestAnimationFrame(spinTick);
   }
@@ -1012,6 +1101,67 @@ document.getElementById("s-spin").addEventListener("input", e => {
   ensureSpin();
 });
 
+// parked spheres: the snap-back button returns every dragged sphere home
+function updateSnapBtn() {
+  document.getElementById("snap-back").textContent =
+    dragOffset.size ? `snap ${dragOffset.size} back` : "none parked";
+}
+document.getElementById("snap-back").addEventListener("click", () => {
+  dragOffset.clear();
+  updateSnapBtn();
+  render();
+});
+
+// ---- saved park states: name + timestamp → parked positions, nothing more.
+// Each entry only stores the parked offsets, so hundreds fit in localStorage.
+const STATES_KEY = "loom-park-states";
+function loadStates() {
+  try { return JSON.parse(localStorage.getItem(STATES_KEY) || "[]"); } catch (e) { return []; }
+}
+function persistStates(s) {
+  try { localStorage.setItem(STATES_KEY, JSON.stringify(s)); } catch (e) {}
+}
+function renderStateList() {
+  const states = loadStates();
+  const el = document.getElementById("state-list");
+  el.innerHTML = states.length ? ""
+    : "<div style='color:var(--faint);font-size:11px'>no saved states</div>";
+  states.forEach((s, i) => {
+    const row = document.createElement("div");
+    row.className = "state-row";
+    const d = new Date(s.ts);
+    row.innerHTML = `<span class="recall" title="recall this arrangement">${esc(s.name)} (${s.off.length})</span>
+      <span class="ts">${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+      <span class="del" title="delete">×</span>`;
+    row.querySelector(".recall").addEventListener("click", () => {
+      dragOffset.clear();
+      for (const [id, dx, dy] of s.off) dragOffset.set(id, { dx, dy });
+      updateSnapBtn();
+      render();
+    });
+    row.querySelector(".del").addEventListener("click", () => {
+      states.splice(i, 1);
+      persistStates(states);
+      renderStateList();
+    });
+    el.appendChild(row);
+  });
+}
+document.getElementById("state-save").addEventListener("click", () => {
+  const nameInput = document.getElementById("state-name");
+  const states = loadStates();
+  states.unshift({
+    name: nameInput.value.trim() || "parked set",
+    ts: new Date().toISOString(),
+    layout: layoutMode,   // informational; recall applies offsets in any layout
+    off: [...dragOffset.entries()].map(([id, o]) => [id, Math.round(o.dx), Math.round(o.dy)]),
+  });
+  persistStates(states);
+  nameInput.value = "";
+  renderStateList();
+});
+renderStateList();
+
 // exponential sliders: fine granularity at the low end, huge reach at the top
 function daysFromSlider(v) {          // 1..99 → 1..180 days, 100 → all time
   if (+v >= 100) return 9999;
@@ -1042,7 +1192,7 @@ document.getElementById("search").addEventListener("input", e => {
 // Unified pointer pan + pinch zoom + grab-rotate for mouse, pen, and touch.
 // Grabbing inside the dome pauses the spin and rotates it by hand;
 // grabbing the background outside the dome pans the canvas.
-let dragging = null, suppressClick = false;
+let dragging = null, suppressClick = false, pressEl = null;
 const pointers = new Map();
 function domeScreenCenter() {
   return {
@@ -1052,6 +1202,7 @@ function domeScreenCenter() {
 }
 function beginPointer(e) {
   suppressClick = false;
+  pressEl = pointers.size ? null : (e.target.closest?.(".node") || null);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   svg.setPointerCapture?.(e.pointerId);
   if (pointers.size === 2) {
@@ -1066,19 +1217,29 @@ function beginPointer(e) {
     grabPause = true;
     return;
   }
+  if (radialLike() && radialState && pressEl) {
+    const meta = radialState.nodes.find(m => m.el === pressEl);
+    if (meta) { // grab a sphere: drag it out of formation and park it
+      grabPause = true;
+      dragging = { mode: "node", meta, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY };
+      return;
+    }
+  }
   if (radialLike() && radialState) {
     const c = domeScreenCenter();
     const dx = e.clientX - c.x, dy = e.clientY - c.y;
     if (Math.hypot(dx, dy) <= radialState.maxR * viewTransform.k * 1.04) {
       grabPause = true; // holding the dome always pauses the spin
-      // rotate only with shift-drag or right-button drag; plain drag pans
-      if (e.shiftKey || e.button === 2) {
+      // mouse/pen grabs the dome directly (shift-drag pans instead);
+      // one-finger touch keeps panning — two-finger pinch rotates
+      if (e.pointerType !== "touch" && (!e.shiftKey || e.button === 2)) {
         dragging = { mode: "rotate", angle: Math.atan2(dy, dx) };
+        rotVel = 0; dragVel = 0; lastDragT = performance.now();
         return;
       }
     }
   }
-  dragging = { mode: "pan", x: e.clientX, y: e.clientY };
+  dragging = { mode: "pan", x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY };
 }
 svg.addEventListener("pointerdown", beginPointer);
 svg.addEventListener("contextmenu", e => e.preventDefault()); // right-drag = rotate
@@ -1112,6 +1273,20 @@ window.addEventListener("pointermove", e => {
     suppressClick = true;
     return;
   }
+  if (dragging.mode === "node") {
+    const m = dragging.meta;
+    const off = dragOffset.get(m.c.concept_id) || { dx: 0, dy: 0 };
+    off.dx += (e.clientX - dragging.x) / viewTransform.k;   // screen → world units
+    off.dy += (e.clientY - dragging.y) / viewTransform.k;
+    dragOffset.set(m.c.concept_id, off);
+    m.el.setAttribute("stroke-dasharray", "3 3");
+    if (Math.hypot(e.clientX - dragging.x0, e.clientY - dragging.y0) > 5) suppressClick = true;
+    dragging.x = e.clientX; dragging.y = e.clientY;
+    updateSnapBtn();
+    placeRadial();
+    semanticZoom();
+    return;
+  }
   if (dragging.mode === "rotate") {
     const c = domeScreenCenter();
     const a = Math.atan2(e.clientY - c.y, e.clientX - c.x);
@@ -1121,24 +1296,44 @@ window.addEventListener("pointermove", e => {
     tune.rot = (tune.rot + d) % (2 * Math.PI);
     if (Math.abs(d) > 0.003) suppressClick = true; // real drag, not a click
     dragging.angle = a;
+    const now = performance.now();
+    dragVel = 0.75 * dragVel + 0.25 * (d / Math.max(1, now - lastDragT));
+    lastDragT = now;
     document.getElementById("s-rot").value = ((tune.rot * 180 / Math.PI) % 360 + 360) % 360;
     placeRadial();
     return;
   }
   viewTransform.x += e.clientX - dragging.x;
   viewTransform.y += e.clientY - dragging.y;
-  dragging = { x: e.clientX, y: e.clientY, mode: "pan" };
+  if (Math.hypot(e.clientX - dragging.x0, e.clientY - dragging.y0) > 5) suppressClick = true;
+  dragging = { x: e.clientX, y: e.clientY, x0: dragging.x0, y0: dragging.y0, mode: "pan" };
   const g = svg.firstChild;
   if (g) g.setAttribute("transform",
     `translate(${viewTransform.x},${viewTransform.y}) scale(${viewTransform.k})`);
 });
 function endPointer(e) {
+  const wasRotate = !!dragging && dragging.mode === "rotate";
   pointers.delete(e.pointerId);
   if (pointers.size === 1) {
     const p = [...pointers.values()][0];
-    dragging = { mode: "pan", x: p.x, y: p.y };
-  } else if (pointers.size === 0) dragging = null;
-  if (grabPause) { grabPause = false; lastSpinT = 0; ensureSpin(); }
+    dragging = { mode: "pan", x: p.x, y: p.y, x0: p.x, y0: p.y };
+  } else if (pointers.size === 0) {
+    // synthesized click: a press that started on a sphere and never travelled
+    if (e.type === "pointerup" && !suppressClick && pressEl?.isConnected) {
+      openDrawer(pressEl.dataset.cid);
+    }
+    pressEl = null;
+    dragging = null;
+  }
+  if (grabPause) {
+    // flick-to-coast: a live release keeps its velocity, capped at the Spin
+    // slider's rate (spin at 0 → no coast; the slider is the speed limit)
+    if (wasRotate && e.type === "pointerup" && performance.now() - lastDragT < 120) {
+      const cap = tune.spin * SPIN_RATE;
+      rotVel = Math.max(-cap, Math.min(cap, dragVel));
+    }
+    grabPause = false; lastSpinT = 0; ensureSpin();
+  }
 }
 window.addEventListener("pointerup", endPointer);
 window.addEventListener("pointercancel", endPointer);
@@ -1159,13 +1354,89 @@ svg.addEventListener("wheel", e => {
 window.addEventListener("resize", render);
 window.addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(); });
 
-// ---- movable menus: drag any panel by its empty space; positions persist
+// ---- movable menus: drag any panel by its empty space; positions persist.
+// Panels are magnetic: drop one onto another's top or bottom edge and they
+// dock into a single glass stack (parent drags the whole stack; grabbing a
+// docked panel separates it again). Dock relationships persist too.
 (function makeHudsMovable() {
-  const INTERACTIVE = "input, button, a, select, textarea, .type-toggle";
+  const INTERACTIVE = "input, button, a, select, textarea, .type-toggle, .state-row";
+  const SNAP = 18;                     // px of magnetism at the edges
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem("loom-hud-pos") || "{}"); } catch (e) {}
-  document.querySelectorAll(".hud").forEach(panel => {
-    if (!panel.id) return;
+  const docks = saved._docks || {};    // childId → parentId (child sits flush below parent)
+  const panels = [...document.querySelectorAll(".hud")].filter(p => p.id);
+  const byId = id => panels.find(p => p.id === id);
+  for (const c of Object.keys(docks)) {  // drop stale entries
+    if (!byId(c) || !byId(docks[c])) delete docks[c];
+  }
+
+  function persist() {
+    for (const p of panels) {
+      if (p.style.left) saved[p.id] = { left: parseFloat(p.style.left), top: parseFloat(p.style.top) };
+    }
+    saved._docks = docks;
+    try { localStorage.setItem("loom-hud-pos", JSON.stringify(saved)); } catch (e) {}
+  }
+  const childrenOf = id => Object.keys(docks).filter(c => docks[c] === id);
+  function chainOf(id) {               // id plus all docked descendants
+    const out = [id];
+    for (let i = 0; i < out.length; i++) out.push(...childrenOf(out[i]));
+    return out;
+  }
+  function toExplicit(p) {             // pin to left/top so any panel moves freely
+    const r = p.getBoundingClientRect();
+    p.style.left = r.left + "px"; p.style.top = r.top + "px";
+    p.style.right = "auto"; p.style.bottom = "auto"; p.style.transform = "none";
+  }
+  function refreshDockStyles() {
+    for (const p of panels) {
+      p.classList.toggle("dock-bottom", childrenOf(p.id).length > 0);
+      p.classList.toggle("dock-top", !!docks[p.id]);
+    }
+  }
+  function layoutChain(id) {           // snap descendants flush under their parents
+    const parent = byId(id);
+    const pr = parent.getBoundingClientRect();
+    for (const c of childrenOf(id)) {
+      const child = byId(c);
+      if (child.dataset.ow === undefined) child.dataset.ow = child.style.width || "";
+      toExplicit(child);
+      child.style.width = pr.width + "px";
+      child.style.left = pr.left + "px";
+      child.style.top = pr.bottom + "px";
+      layoutChain(c);
+    }
+  }
+  function undock(p) {
+    delete docks[p.id];
+    if (p.dataset.ow !== undefined) { p.style.width = p.dataset.ow; delete p.dataset.ow; }
+    refreshDockStyles();
+  }
+  function trySnap(panel) {
+    const r = panel.getBoundingClientRect();
+    const own = new Set(chainOf(panel.id));
+    let best = null;
+    for (const other of panels) {
+      if (own.has(other.id) || !other.offsetWidth) continue;
+      const o = other.getBoundingClientRect();
+      const xOverlap = Math.min(r.right, o.right) - Math.max(r.left, o.left);
+      if (xOverlap < Math.min(r.width, o.width) * 0.4) continue;
+      const dBelow = Math.abs(r.top - o.bottom);   // dropped just under `other`
+      const dAbove = Math.abs(r.bottom - o.top);   // dropped just above `other`
+      if (dBelow <= SNAP && (!best || dBelow < best.d)) best = { d: dBelow, other, side: "below" };
+      if (dAbove <= SNAP && (!best || dAbove < best.d)) best = { d: dAbove, other, side: "above" };
+    }
+    if (!best) return;
+    if (best.side === "below") {
+      docks[panel.id] = best.other.id;
+      layoutChain(best.other.id);
+    } else if (!docks[best.other.id]) { // dropped above: the other panel joins this stack
+      docks[best.other.id] = panel.id;
+      layoutChain(panel.id);
+    }
+  }
+
+  panels.forEach(panel => {
     if (saved[panel.id]) {
       const p = saved[panel.id];
       panel.style.left = p.left + "px";
@@ -1178,32 +1449,38 @@ window.addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer();
       if (e.target.closest(INTERACTIVE)) return;
       e.preventDefault();
       e.stopPropagation(); // don't start a canvas pan underneath
-      const rect = panel.getBoundingClientRect();
-      const offX = e.clientX - rect.left, offY = e.clientY - rect.top;
-      // switch to explicit left/top so right/bottom/centered panels move freely
-      panel.style.left = rect.left + "px";
-      panel.style.top = rect.top + "px";
-      panel.style.right = "auto";
-      panel.style.bottom = "auto";
-      panel.style.transform = "none";
+      if (docks[panel.id]) undock(panel); // grabbing a docked panel separates it
+      const stack = chainOf(panel.id).map(byId);
+      stack.forEach(toExplicit);
+      const grips = stack.map(p => {
+        const r = p.getBoundingClientRect();
+        return { p, dx: e.clientX - r.left, dy: e.clientY - r.top };
+      });
       panel.style.cursor = "grabbing";
       function onMove(ev) {
         if (ev.pointerId !== e.pointerId) return;
-        panel.style.left = Math.max(0, Math.min(innerWidth - 40, ev.clientX - offX)) + "px";
-        panel.style.top = Math.max(0, Math.min(innerHeight - 30, ev.clientY - offY)) + "px";
+        for (const g of grips) {
+          g.p.style.left = Math.max(0, Math.min(innerWidth - 40, ev.clientX - g.dx)) + "px";
+          g.p.style.top = Math.max(0, Math.min(innerHeight - 30, ev.clientY - g.dy)) + "px";
+        }
       }
       function onUp(ev) {
         if (ev.pointerId !== e.pointerId) return;
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         panel.style.cursor = "";
-        saved[panel.id] = { left: parseFloat(panel.style.left), top: parseFloat(panel.style.top) };
-        try { localStorage.setItem("loom-hud-pos", JSON.stringify(saved)); } catch (e) {}
+        trySnap(panel);
+        refreshDockStyles();
+        persist();
       }
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
     });
   });
+
+  // restore docked stacks from the last session
+  panels.filter(p => !docks[p.id]).forEach(p => layoutChain(p.id));
+  refreshDockStyles();
 })();
 
 buildTypeLegend();
