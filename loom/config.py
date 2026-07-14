@@ -74,6 +74,7 @@ class LoomConfig:
     clustering: ClusteringConfig
     llm: LLMConfig
     server: ServerConfig
+    plugin_paths: tuple[Path, ...] = ()
 
 
 def _resolve(root: Path, value: str) -> Path:
@@ -95,6 +96,16 @@ def load_config(path: str | Path = "loom.toml") -> LoomConfig:
     clustering = data.get("clustering", {})
     llm = data.get("llm", {})
     server = data.get("server", {})
+
+    plugin_paths = tuple(
+        _resolve(root, entry) for entry in data.get("plugins", {}).get("paths", [])
+    )
+    if plugin_paths:
+        # Applied at load time so plugin adapters/providers referenced by
+        # [[sources]] or [llm] resolve no matter which entry point runs.
+        from loom.plugins import add_plugin_paths
+
+        add_plugin_paths(plugin_paths)
 
     sources: list[SourceConfig] = []
     for entry in data.get("sources", []):
@@ -139,4 +150,5 @@ def load_config(path: str | Path = "loom.toml") -> LoomConfig:
             host=server.get("host", "127.0.0.1"),
             port=int(server.get("port", 8901)),
         ),
+        plugin_paths=plugin_paths,
     )

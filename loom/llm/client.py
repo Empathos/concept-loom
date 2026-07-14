@@ -7,6 +7,7 @@ import urllib.error
 import urllib.request
 
 from loom.config import LLMConfig
+from loom.plugins import is_plugin_spec, load_plugin
 
 
 class LLMTransportError(RuntimeError):
@@ -100,6 +101,10 @@ def call_json(cfg: LLMConfig, *, session_key: str, prompt: str) -> dict[str, Any
     session_key labels the call for logs/debugging; it is not sent to the
     provider.
     """
+    if is_plugin_spec(cfg.provider):
+        # e.g. provider = "plugin:my_llm:call_json" — the target is called with
+        # the same signature as this function and owns the full exchange.
+        return load_plugin(cfg.provider)(cfg, session_key=session_key, prompt=prompt)
     del session_key
     if cfg.provider == "anthropic":
         text = _call_anthropic(cfg, prompt)
