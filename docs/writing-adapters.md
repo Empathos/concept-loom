@@ -43,11 +43,35 @@ shares a `session_id` get linked in the graph view.
 
 ## Registering
 
-1. Add a config dataclass with a `from_source(source: SourceConfig)`
-   classmethod that reads `source.options` (the raw TOML keys minus
-   `name`/`type`).
+Two ways to make your adapter available:
+
+**In-tree** — for adapters worth upstreaming:
+
+1. Add a config dataclass with a `from_source(source: SourceConfig,
+   config_root: Path)` classmethod that reads `source.options` (the raw TOML
+   keys minus `name`/`type`).
 2. Register the pair in `ADAPTER_TYPES` in `loom/adapters/__init__.py`.
 3. Users enable it with a `[[sources]]` entry whose `type` is your key.
+
+**As a plugin — no fork needed.** Keep the adapter in your own module
+(anywhere on disk; it never has to enter this repository — useful when the
+adapter itself references private systems):
+
+```toml
+[plugins]
+paths = ["~/my-loom-plugins"]        # added to sys.path at config load
+
+[[sources]]
+name = "worklog"
+type = "plugin:my_adapters:WorklogAdapter"   # module:attribute
+# ...your adapter's own options...
+```
+
+The referenced attribute must expose `from_source(source, config_root)`
+returning an `Adapter` instance (a classmethod on your adapter class works).
+The same mechanism covers custom LLM transports for `loom name`:
+`provider = "plugin:my_llm:call_json"` in `[llm]`, where the target is a
+callable with the signature `call_json(cfg, *, session_key, prompt) -> dict`.
 
 ## Testing
 

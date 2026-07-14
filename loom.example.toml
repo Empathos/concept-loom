@@ -6,6 +6,11 @@
 data_dir = "data"
 db_path = "data/loom.db"
 
+# Load adapters / LLM providers from your own modules without forking:
+# see docs/writing-adapters.md ("As a plugin").
+#[plugins]
+#paths = ["~/my-loom-plugins"]
+
 # Each [[sources]] entry is one ingest source. `name` labels every evidence
 # row from that source (renaming it orphans provenance for old rows).
 

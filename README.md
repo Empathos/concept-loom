@@ -88,8 +88,11 @@ files on re-ingest.
 | `markdown_folder` | A folder of `.md`/`.txt` notes, chunked by paragraph with exact character spans. Chunks from the same file are linked. |
 | `jsonl_transcripts` | Chat/session exports as JSON Lines, with configurable dotted paths for text, role, id, and timestamp fields — covers most assistant/agent log formats. |
 
-Writing your own adapter is ~100 lines against a four-method interface; see
-[docs/writing-adapters.md](docs/writing-adapters.md).
+Writing your own adapter is ~100 lines against a four-method interface — and
+it can live entirely outside this repo as a plugin
+(`type = "plugin:my_adapters:MyAdapter"`), which is the right home for
+adapters that reference private systems. Custom LLM transports plug in the
+same way. See [docs/writing-adapters.md](docs/writing-adapters.md).
 
 ## Naming models
 
