@@ -1,0 +1,29 @@
+[project]
+name = "concept-loom"
+version = "0.1.0"
+description = "Extract, cluster, name, and rank recurring concepts from your notes and chat transcripts — with verifiable provenance from every concept back to its source evidence, and an interactive orbit UI."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+dependencies = [
+  "anthropic",
+  "fastapi",
+  "hdbscan",
+  "numpy",
+  "scikit-learn",
+  "sentence-transformers",
+  "torch",
+  "uvicorn",
+]
+
+[project.scripts]
+loom = "loom.cli:main"
+
+# The ui/ directory is served from the repo checkout (see loom/api/server.py),
+# so install the project editable: pip install -e .
+[tool.setuptools.packages.find]
+include = ["loom*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
