@@ -1,0 +1,65 @@
+# Concept Loom configuration.
+# Copy to loom.toml, point the sources at your own data, and run:
+#   loom init && loom ingest && loom embed && loom cluster && loom name && loom rank && loom serve
+
+[paths]
+data_dir = "data"
+db_path = "data/loom.db"
+
+# Each [[sources]] entry is one ingest source. `name` labels every evidence
+# row from that source (renaming it orphans provenance for old rows).
+
+# A folder of markdown / plain-text notes, chunked by paragraph.
+[[sources]]
+name = "notes"
+type = "markdown_folder"
+root = "~/notes"
+include = ["**/*.md", "**/*.txt"]
+max_chunk_chars = 2000
+min_text_chars = 40
+
+# Chat/session exports stored as JSON Lines — one JSON object per line.
+# The *_path options are dotted paths into each line's object; the defaults
+# below fit exports shaped like {"id": ..., "timestamp": ...,
+# "message": {"role": ..., "content": ...}}. Lines where text_path resolves
+# to nothing are skipped automatically.
+#[[sources]]
+#name = "chats"
+#type = "jsonl_transcripts"
+#glob = "~/exports/chats/*.jsonl"
+#text_path = "message.content"
+#role_path = "message.role"
+#id_path = "id"
+#timestamp_path = "timestamp"
+#skip_roles = ["system"]
+#min_text_chars = 40
+
+[embedding]
+# Local sentence-transformers model; downloaded on first run. No API needed.
+model = "BAAI/bge-m3"
+batch_size = 8
+device = "auto"        # "cuda", "cpu", or "auto"
+max_seq_length = 512
+
+[clustering]
+min_cluster_size = 6
+min_samples = 3
+reduced_dimensions = 50
+
+[llm]
+# Used only by `loom name` to title and summarize clusters.
+# provider "anthropic" needs ANTHROPIC_API_KEY; provider "openai" speaks the
+# OpenAI-compatible protocol — set base_url for local servers (Ollama,
+# LM Studio, vLLM), which usually need no key.
+provider = "anthropic"
+model = "claude-opus-4-8"     # budget option: "claude-haiku-4-5"
+#provider = "openai"
+#model = "llama3.1"
+#base_url = "http://localhost:11434/v1"
+max_tokens = 1024
+timeout = 120
+max_llm_calls_per_run = 200
+
+[server]
+host = "127.0.0.1"
+port = 8901
