@@ -3,7 +3,7 @@
 [![ci](https://github.com/empathos/concept-loom/actions/workflows/ci.yml/badge.svg)](https://github.com/empathos/concept-loom/actions/workflows/ci.yml)
 
 ![Concept Loom orbit view](docs/orbit.png)
-*The orbit view on the bundled sample corpus — real corpora light up hundreds of linked concepts.*
+*The sectors layout on a synthetic showcase corpus (~3,000 evidence snippets → 315 concepts, 962 links), with a concept card open to its evidence trail. Concept cards are deep-linkable via `?concept=<id>`.*
 
 Concept Loom extracts, clusters, names, and ranks the recurring concepts in
 your own writing — notes, journals, chat transcripts, agent session logs —
