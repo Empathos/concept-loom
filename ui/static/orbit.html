@@ -1065,6 +1065,9 @@ async function load() {
   ]);
   computePercentiles();
   render();
+  // deep-linkable concept card: /static/orbit.html?concept=<id>
+  const qsConcept = new URLSearchParams(location.search).get("concept");
+  if (qsConcept && concepts.some(c => c.concept_id === qsConcept)) openDrawer(qsConcept);
 }
 
 const MODES = ["radial", "sectors", "graph", "orbit"];
